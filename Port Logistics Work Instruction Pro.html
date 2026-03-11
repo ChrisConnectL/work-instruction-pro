@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Connect Logistics – Enterprise Transport Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+        /* Modern Premium CSS Reset & Variables */
+        :root {
+            --connect-blue: #273480;      
+            --logic-navy: #1c2545;        
+            --international-orange: #e04403;
+            --eco-green: #009982;
+            --bg-gradient: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+            --white: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-soft: #cbd5e1;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 24px;
+            user-select: none; 
+            -webkit-user-select: none;
+        }
+
+        input, select, textarea { user-select: auto; -webkit-user-select: auto; }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 1920px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Sleek Header Section */
+        header {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 24px 32px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 4px solid var(--connect-blue);
+        }
+
+        header .brand { display: flex; align-items: center; gap: 20px; }
+        header img.main-logo { height: 55px; object-fit: contain; }
+        header h1 { font-size: 24px; color: var(--logic-navy); font-weight: 800; letter-spacing: -0.5px; }
+        header small { display: block; color: var(--text-muted); font-size: 13px; margin-top: 4px; font-weight: 500;}
+        
+        .contact-info { text-align: right; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+        .contact-info strong { color: var(--international-orange); font-weight: 600; }
+
+        /* Card Panels */
+        .panel {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 24px 32px;
+            box-shadow: var(--shadow-md);
+            transition: transform 0.2s;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .panel-title { font-size: 18px; font-weight: 700; color: var(--logic-navy); display: flex; align-items: center; gap: 8px;}
+        .panel-desc { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+        
+        .draft-badge { font-size: 11px; background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 12px; display: none; }
+        .draft-badge.visible { display: inline-block; }
+
+        /* Drag & Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--border-soft);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            text-align: center;
+            background: #f8fafc;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        .drop-zone.dragover { border-color: var(--connect-blue); background: #eff6ff; }
+        .drop-zone input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .drop-zone p { margin: 0; font-size: 14px; font-weight: 500; color: var(--logic-navy); }
+        .drop-zone small { color: var(--text-muted); font-size: 12px; }
+
+        /* Modern Inputs */
+        input[type="text"], input[type="date"], select {
+            width: 100%; padding: 10px 12px; font-size: 13px; border-radius: 6px;
+            border: 1px solid var(--border-soft); background: #f8fafc; color: var(--logic-navy);
+            transition: all 0.2s ease;
+        }
+        input:focus, select:focus {
+            outline: none; border-color: var(--connect-blue); background: var(--white);
+            box-shadow: 0 0 0 3px rgba(39, 52, 128, 0.1);
+        }
+        input:disabled { background: #e2e8f0; cursor: not-allowed; color: #94a3b8; }
+        .uppercase-input { text-transform: uppercase; }
+
+        /* Data Table & Sticky Header */
+        .table-wrapper { 
+            overflow-y: auto; overflow-x: auto; 
+            max-height: 60vh; 
+            border-radius: 8px; border: 1px solid #e2e8f0; 
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; background: var(--white); }
+        th { 
+            background: #f1f5f9; color: var(--logic-navy); font-weight: 700; 
+            text-align: left; padding: 14px 16px; white-space: nowrap;
+            position: sticky; top: 0; z-index: 10;
+            border-bottom: 2px solid #cbd5e1;
+        }
+        td { padding: 10px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        tbody tr { transition: background-color 0.2s; }
+        tbody tr:hover { background: #f8fafc; }
+        tbody tr.invalid { background: #fef2f2 !important; box-shadow: inset 4px 0 0 var(--danger); }
+
+        .actions-col { text-align: center; white-space: nowrap; }
+
+        /* Summary Bar */
+        .summary-bar {
+            background: var(--logic-navy); color: var(--white);
+            padding: 12px 24px; border-radius: 8px; margin-top: 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-weight: 600; box-shadow: var(--shadow-md);
+        }
+        .summary-val { color: #38bdf8; font-size: 16px; }
+
+        /* Refined Buttons */
+        .btn-group { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        button {
+            padding: 10px 20px; font-size: 13px; font-weight: 600; border-radius: 6px;
+            cursor: pointer; border: none; transition: all 0.2s ease;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        }
+
+        .btn-primary { background: var(--logic-navy); color: var(--white); box-shadow: 0 2px 4px rgba(28,37,69,0.2); }
+        .btn-primary:hover { background: var(--connect-blue); transform: translateY(-1px); box-shadow: 0 4px 6px rgba(28,37,69,0.3); }
+        
+        .btn-secondary { background: var(--white); color: var(--logic-navy); border: 1px solid var(--border-soft); }
+        .btn-secondary:hover { background: #f1f5f9; border-color: var(--text-muted); }
+        
+        .btn-danger-icon { background: #fef2f2; color: var(--danger); padding: 8px; border-radius: 6px; }
+        .btn-danger-icon:hover { background: #fee2e2; }
+
+        .btn-ghost { background: transparent; color: var(--danger); border: 1px solid #fca5a5; }
+        .btn-ghost:hover { background: #fef2f2; }
+
+        .btn-icon-blue { background: #eff6ff; color: var(--connect-blue); padding: 8px; border-radius: 6px; border: 1px solid #bfdbfe; }
+        .btn-icon-blue:hover { background: #dbeafe; }
+
+        /* Custom Input Widths */
+        .w-date { min-width: 130px; }
+        .w-sm { min-width: 120px; }
+        .w-md { min-width: 180px; }
+        .w-lg { min-width: 220px; }
+        .w-container { min-width: 140px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
+
+        /* Floating Toasts */
+        .toast-container {
+            position: fixed; top: 24px; right: 24px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+        }
+        .toast {
+            background: var(--white); padding: 16px 24px; border-radius: 8px;
+            box-shadow: var(--shadow-lg); border-left: 4px solid var(--connect-blue);
+            font-size: 14px; font-weight: 600; color: var(--logic-navy);
+            transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; align-items: center; gap: 12px;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.success { border-left-color: var(--success); }
+        .toast.warning { border-left-color: var(--warning); }
+
+        /* Loading Screen Fix */
+        #loader {
+            position: fixed; inset: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(5px);
+            z-index: 10000; display: none; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.2s ease;
+        }
+        #loader.show { display: flex; opacity: 1; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #e2e8f0; border-top-color: var(--connect-blue); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+</head>
+<body>
+
+<div class="toast-container" id="toast-box"></div>
+
+<div id="loader">
+    <div class="spinner"></div>
+    <h2 style="color: var(--logic-navy); margin-top: 24px;">Processing Operations...</h2>
+    <p style="color: var(--text-muted); margin-top: 8px; font-weight: 500;">Compiling documents and generating secure package</p>
+</div>
+
+<datalist id="dl-collect"></datalist>
+<datalist id="dl-deliver"></datalist>
+<datalist id="dl-turnin"></datalist>
+<datalist id="dl-shipping"></datalist>
+
+<div class="dashboard-container">
+    <header>
+        <div class="brand">
+            <img class="main-logo" src="https://i.ibb.co/3yCDG5LX/Connect-Logistics-Logo.png" alt="Connect Logistics Logo" />
+            <div>
+                <h1>Enterprise Transport Instruction</h1>
+                <small>Secure PDF Generation & Data Management Portal</small>
+            </div>
+        </div>
+        <div class="contact-info">
+            Gate 4, 265 Sydney Road, Congella, 4013<br>
+            PO Box 59019, Umbilo, 4075<br>
+            T: +27 (0) 31 700 6220 • info@connectlogistics.za.com<br>
+            <strong>www.connectlogistics.za.com</strong>
+        </div>
+    </header>
+
+    <div class="panel">
+        <div class="panel-header" style="margin-bottom: 12px;">
+            <div>
+                <div class="panel-title">Data Integration Hub</div>
+                <div class="panel-desc">Drag and drop your standardized .xlsx template to batch import operations.</div>
+            </div>
+            <div class="btn-group">
+                <button type="button" class="btn-secondary" id="btn-download-template" title="Download formatted template for accurate data entry">
+                    ⬇ Download Strict .XLSX Template
+                </button>
+            </div>
+        </div>
+        <div class="drop-zone" id="drop-zone">
+            <input type="file" id="excel-upload" accept=".xlsx" />
+            <p>📁 Drag & Drop your .XLSX file here, or click to browse</p>
+            <small>Data will automatically populate the operations table below</small>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header" style="margin-bottom: 16px;">
+            <div>
+                <div class="panel-title">
+                    Active Container Operations 
+                    <span class="draft-badge" id="draft-badge">Unsaved Draft Recovered</span>
+                </div>
+                <div class="panel-desc">Each valid line will generate a unique, highly secure PDF manifest. Auto-saves locally to prevent data loss.</div>
+            </div>
+            <button type="button" class="btn-secondary" id="btn-add-line">➕ Add Blank Row</button>
+        </div>
+
+        <div class="table-wrapper" id="table-scroll-area">
+            <table id="lines-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Reference</th>
+                        <th>File No</th>
+                        <th>ATT</th>
+                        <th>Shipping Line</th>
+                        <th>Transporter Selection</th>
+                        <th>Container Type</th>
+                        <th>Container Number</th>
+                        <th>Seal Number / NA</th>
+                        <th>Rate (ZAR)</th>
+                        <th>Collection Hub</th>
+                        <th>Delivery Point</th>
+                        <th>Turn In Hub / TBC</th>
+                        <th class="actions-col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="lines-body"></tbody>
+            </table>
+        </div>
+        
+        <div class="summary-bar">
+            <div>Live Ledger Summary ⚖️</div>
+            <div style="display:flex; gap: 32px;">
+                <div>Containers: <span class="summary-val" id="sum-count">0</span></div>
+                <div>Gross Value: <span class="summary-val" id="sum-value">ZAR 0.00</span></div>
+            </div>
+        </div>
+
+        <div class="panel-header" style="margin-top: 24px; border-bottom: none; padding-bottom: 0;">
+            <div class="btn-group">
+                <button type="button" class="btn-primary" id="btn-submit" style="padding: 14px 28px; font-size: 14px;">
+                    ✅ Generate Manifests & ZIP Package
+                </button>
+                <button type="button" class="btn-secondary" id="btn-export-csv" title="Download historical data locally">
+                    📥 Export History (CSV)
+                </button>
+            </div>
+            <div class="btn-group">
+                <span id="history-info" class="panel-desc" style="margin: 0; margin-right: 12px; font-weight:600;"></span>
+                <button type="button" class="btn-ghost" id="btn-clear-cache" title="Wipe all local points and history">
+                    🗑️ Purge System Cache
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Security Block: Disabling Inspect / View Source ---
+    document.addEventListener('contextmenu', event => event.preventDefault());
+    document.onkeydown = function(e) {
+        if(e.keyCode == 123) { return false; } // F12
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { return false; } // Ctrl+Shift+I
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) { return false; } // Ctrl+Shift+C
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) { return false; } // Ctrl+Shift+J
+        if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { return false; } // Ctrl+U
+    }
+
+    const STORAGE_KEY_HISTORY = "connectPortLogisticsHistory";
+    const STORAGE_KEY_POINTS = "connectLogisticsPoints";
+    const STORAGE_KEY_DRAFT = "connectLogisticsDraft";
+
+    const TRANSPORTERS = [
+        "TRANSNATIONAL ABNORMALS (PTY) LTD", "TRAFFORD PACKAGING MANUFACTURING", "TITAN PROJECT", "TIMELINK", "SWE", 
+        "SUNRAYS CARRIERS", "SPRINGBOK TRUCKING CO", "SASHENS SAND AND STONE", "SAPHIRE", "RUEGSNOT TRANSPORT (PTY) LTD", 
+        "POSEIDON TRANSPORT", "PETROMARK", "NTS BULK", "MDC TRANSPORTER", "KINGDOM CARGO", "K AND N FREIGHT LINE", 
+        "GOLDEN PEARL FREIGHT LOGISTICS", "GOLD MORE INVESTMENT PTY LTD", "GANTRANS", "DONATIONS", "DHAJON", 
+        "CUSTOMER COLLECTION", "CUSTOMER : SNL", "CUSTOMER : RNL", "CUSTOMER : NORANDIEN", "CONNECT COMPANY VEHICLE", 
+        "CITY LOGISTICS", "CDS TRANSPORT", "STOBEL", "ORACLE TRANSPORTER", "PRIVATE TRANSPORT", "EMIT-CHRONO TRANSPORT", 
+        "KENBERT TRANSPORT", "RB AND SON TRANSPORT", "TNS GROUP", "TBT TRANSPORT", "EMIT TRANSPORT", "CENTILLION GROUP", 
+        "CANWAY TRUCKING", "AVRES", "AST LOGISTICS", "AFRICAN MAHOGANY GROUP", "MDC LOGISTICS (PTY) LTD", 
+        "NEXTRADE GLOBAL (PTY) LTD", "CONTRIVE CONSTRUCTION SOLUTIONS (PTY) LTD", "BRAINWAVE INVESTMENT 777", 
+        "FREIGHTXCHANGE (PTY) LTD", "DPG LOGISTICS PTY LTD", "EDEVA CARTAGE CC", "JFK LAEVELD LANDBOUDIENSTE (PTY) LTD", 
+        "NQOLA EMASONDOSONDO CONSULTING (PTY) LTD", "STYLERZ TRADING ENTERPRISE T/A MZANZI ENTERPRISE", 
+        "CONTINENTAL SA COURIERS (PTY) LTD", "LIEBEN LOGISTICS (PTY) LTD", "ENCORE CLAIMS SUSPENSE", "CARRUS LOGISTICS (PTY) LTD", 
+        "ZWIDES LOGISTICS (PTY) LTD", "SAYIJIKALENTO LOGISTICS (PTY) LTD", "MPULOS TRANSPORT (PTY) LTD", 
+        "ONELOGIX INTERMODAL (PTY) LTD", "SELUPHELO LOGISTICS (PTY) LTD", "RNS TRANSPORT SOLUTIONS", "T AND S GROUP (PTY) LTD", 
+        "TICIVA TWENTY PTY LTD T/A", "ANDY'S TRUCKPORT PORT ELIZABETH", "KEMPSTON ENERGY CAPE TOWN", 
+        "KEMPSTON DIESEL EAST LONDON", "REEF TRUCKSTOP", "OILCO RETAIL PTY LTD", "SHIPTECH PETROLEUM SA (PTY) LTD", 
+        "SILVERWELL LOGISTICS (PTY) LTD", "NSA SECURITY CONSULTANTS SA (PTY) LTD", "DKB LOGISTICS (PTY) LTD", 
+        "MOJOS INVESTMENTS CC T/A MOJOS TRANSPORT", "AVANCE LOGISTICS", "MCLAREN FREIGHT (PTY) LTD", 
+        "PROPATEEZ 81 (PTY) LTD T/A RAILROAD CONTAINERS", "CHUKKA LOGISTICS (PTY) LTD", "SISHIS LOGISTICS (PTY) LTD", 
+        "ORBIT INTEGRAL (PTY) LTD", "ROASH LOGISTICS PTY LTD", "VN UBUSISIWE LOGISTICS (PTY) LTD", "XQZIT LOGISTICS", 
+        "SMART LOGISTICS", "WATERFORD CARRIERS (PTY) LTD", "MARUTI CONSTRUCTION T/A MARUTI CONTAINERS", 
+        "FORMULA ONE TRUCKING AND WAREHOUSING (PTY) LTD", "ATAROLOG PTY LTD", "COURAGEOUS TRANSPORT (PTY) LTD", 
+        "TAYLORMADE EXPRESS (PTY) LTD", "BETTERENERGY PTY LTD T/A BETTERTRANSPORT", "FSK FREIGHT (PTY) LTD", 
+        "VLB CONSTRUCTION AND LOGISTICS (PTY) LTD", "WOODFORD FINANCIAL SERVICES CC T/A WOODFORD VEHICLE RENTALS", 
+        "PQF 105 INVESTMENTS CC T/A RAMU'S CARTAGE", "AFRICAN HAUL PTY LTD", "COLDSURE DISTRIBUTION SERVICES", 
+        "NKWAZI ELECTRICAL AND GENERAL MAINTENANCE", "MEGA HUNT HAULIERS (LTD) PTY", "MANLINE TRANSPORT (PTY) LTD T/A MANLINE FREIGHT", 
+        "B-SOON LOGISTICS", "PSL LOUW VERVOER", "COALITION TRADING 612 CC T/A SULAWEST", "EMPIRE ROAD FREIGHT (PTY) LTD", 
+        "DEWFRUIT (PTY) LTD T/A KUBANDA LOGISTICS", "STRATEGIC TRANSPORT", "XSUN TRANSPORT (PTY) LTD", "JACKSON TRANSPORT (PTY) LTD", 
+        "DONTRANS CC", "IMVUSA TRADING 20 CC T/A PROMECH TRANSPORT", "PESTOKILL PEST AND FUMIGATION SERVICES", 
+        "TOP CROP CARRIERS (PTY) LTD", "MULTI LOADS (PTY) LTD", "CONNECT LOGISTICS - WAREHOUSING DIVISION", 
+        "REINHARDT TRANSPORT GROUP (PTY) LTD T/A CHROME CARRIERS", "NGESABI LOGISTICS T/A DPG LOGISTICS", "VERO'S TRANSPORT (PTY) LTD", 
+        "DEON SLABBERT VERVOER CC T/A SLABBERT VERVOER", "A A A - CREDITORS CLAIMS SUSPENCE ACC", "MVS LOGISTICS CC", 
+        "FAIRFIELD LONGHAUL (PTY) LTD", "GULL TRANS", "TRANS-CARE TRUCKING (SA) CC", "IVAN STOLS VERVOER CC T/A STOLS VERVOER"
+    ];
+
+    const CONTAINER_SIZES = [
+        "20ft Standard", "20ft Standard (Haz)", 
+        "20ft High Cube", "20ft High Cube (Haz)", 
+        "40ft Standard", "40ft Standard (Haz)", 
+        "40ft High Cube", "40ft High Cube (Haz)"
+    ];
+    
+    const SAFETY_NOTE = "Please inspect the containers during handling, ensure that you view the containers, top, left/right side, back and front. Upon opening, the complete inside parameters of the unit. The drivers should do the same, when uplifting from the depot, please report any damages to us immediately.";
+
+    let mainLogoBase64 = null;
+    let iconLogoBase64 = null;
+    let mainLogoHeight = 40; 
+
+    // --- UI/UX Helpers ---
+    function showToast(message, type = 'success') {
+        const box = document.getElementById('toast-box');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        const icon = type === 'success' ? '✅' : (type === 'warning' ? '🔄' : '⚠️');
+        toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+        box.appendChild(toast);
+        
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, type === 'warning' ? 6000 : 4000);
+    }
+
+    function calculateSummary() {
+        const rows = document.querySelectorAll('#lines-body tr');
+        let totalVal = 0; let count = 0;
+        rows.forEach(tr => {
+            count++;
+            const rateStr = tr.querySelector('.f-rate').value.replace(/,/g, '');
+            if(rateStr && !isNaN(parseFloat(rateStr))) totalVal += parseFloat(rateStr);
+        });
+        document.getElementById('sum-count').textContent = count;
+        document.getElementById('sum-value').textContent = `ZAR ${totalVal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+    }
+
+    function formatMoney(val) {
+        if (!val) return "";
+        let num = parseFloat(val.toString().replace(/,/g, ''));
+        if (isNaN(num)) return "";
+        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function normaliseContainerNumber(raw) {
+        if (!raw) return "";
+        let value = String(raw).toUpperCase().replace(/[^A-Z0-9]/g, "");
+        let letters = "", numbers = "";
+        for (let i = 0; i < value.length; i++) {
+            const ch = value[i];
+            if (/[A-Z]/.test(ch)) { if (numbers.length === 0 && letters.length < 4) letters += ch; } 
+            else if (/[0-9]/.test(ch)) { if (letters.length === 4 && numbers.length < 7) numbers += ch; }
+        }
+        return (letters + numbers).slice(0, 11);
+    }
+
+    // Strict Text Sanitizer
+    function sanitizeText(str) {
+        if (str === null || str === undefined) return "";
+        return String(str).replace(/[^\x20-\x7E]/g, '').trim();
+    }
+
+    // --- Advanced Feature: Session Auto-Save ---
+    function triggerAutoSave() {
+        const data = collectRows(false);
+        if(data.length > 0) {
+            localStorage.setItem(STORAGE_KEY_DRAFT, JSON.stringify(data.map(d => d.rowObj)));
+        } else {
+            localStorage.removeItem(STORAGE_KEY_DRAFT);
+        }
+    }
+
+    function loadDraft() {
+        try {
+            const rawDraft = localStorage.getItem(STORAGE_KEY_DRAFT);
+            if (rawDraft) {
+                const draftData = JSON.parse(rawDraft);
+                if (draftData && draftData.length > 0) {
+                    document.getElementById("lines-body").innerHTML = "";
+                    draftData.forEach(row => addLineRow(row));
+                    document.getElementById('draft-badge').classList.add('visible');
+                    showToast('Previous unsaved work was recovered.', 'warning');
+                    return true;
+                }
+            }
+        } catch(e) {}
+        return false;
+    }
+
+    // --- Point Caching Engine ---
+    function loadPoints() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY_POINTS)) || { collect: [], deliver: [], turnin: [], shipping: [] }; } 
+        catch { return { collect: [], deliver: [], turnin: [], shipping: [] }; }
+    }
+
+    function savePoints(collects, delivers, turnins, shippings) {
+        const pts = loadPoints();
+        if(!pts.turnin) pts.turnin = []; 
+        if(!pts.shipping) pts.shipping = []; 
+        
+        collects.forEach(c => { if(c && !pts.collect.includes(c)) pts.collect.push(c); });
+        delivers.forEach(d => { if(d && !pts.deliver.includes(d)) pts.deliver.push(d); });
+        turnins.forEach(t => { if(t && t !== "TBC" && !pts.turnin.includes(t)) pts.turnin.push(t); });
+        shippings.forEach(s => { if(s && !pts.shipping.includes(s)) pts.shipping.push(s); });
+        
+        localStorage.setItem(STORAGE_KEY_POINTS, JSON.stringify(pts));
+        updateDatalists();
+    }
+
+    function updateDatalists() {
+        const pts = loadPoints();
+        const dlC = document.getElementById("dl-collect");
+        const dlD = document.getElementById("dl-deliver");
+        const dlT = document.getElementById("dl-turnin");
+        const dlS = document.getElementById("dl-shipping");
+        
+        if(dlC) dlC.innerHTML = pts.collect.map(p => `<option value="${p}">`).join('');
+        if(dlD) dlD.innerHTML = pts.deliver.map(p => `<option value="${p}">`).join('');
+        if(dlT) dlT.innerHTML = (pts.turnin || []).map(p => `<option value="${p}">`).join('');
+        if(dlS) dlS.innerHTML = (pts.shipping || []).map(p => `<option value="${p}">`).join('');
+    }
+
+    async function preloadImages() {
+        const toDataURL = url => fetch(url).then(r => r.blob()).then(b => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(b);
+        })).catch(() => null);
+
+        mainLogoBase64 = await toDataURL('https://i.ibb.co/3yCDG5LX/Connect-Logistics-Logo.png');
+        iconLogoBase64 = await toDataURL('https://i.ibb.co/k2Rbhg9F/Connect-Logistics-Icon.png');
+
+        if (mainLogoBase64) {
+            const img = new Image();
+            img.onload = () => { mainLogoHeight = (img.height * 130) / img.width; };
+            img.src = mainLogoBase64;
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        preloadImages();
+        
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('excel-upload');
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault(); dropZone.classList.remove('dragover');
+            if(e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; importExcel(); }
+        });
+        fileInput.addEventListener('change', importExcel);
+
+        document.getElementById("btn-add-line").addEventListener("click", () => addLineRow({}));
+        document.getElementById("btn-submit").addEventListener("click", onSubmit);
+        document.getElementById("btn-export-csv").addEventListener("click", exportCsvHistory);
+        document.getElementById("btn-clear-cache").addEventListener("click", clearCache);
+        document.getElementById("btn-download-template").addEventListener("click", downloadXlsxTemplate);
+
+        updateDatalists();
+        updateHistoryInfo();
+
+        if(!loadDraft()) {
+            addLineRow({});
+        }
+    });
+
+    function addLineRow(prefill = {}) {
+        const tbody = document.getElementById("lines-body");
+        const tr = document.createElement("tr");
+
+        const today = new Date().toISOString().split('T')[0];
+
+        tr.innerHTML = `
+            <td><input type="date" class="w-date f-date" value="${prefill.Date || today}"></td>
+            <td><input type="text" class="w-sm f-ref uppercase-input" placeholder="Ref..." value="${prefill.Reference || ''}"></td>
+            <td><input type="text" class="w-sm f-file uppercase-input" placeholder="File..." value="${prefill.FileNo || ''}"></td>
+            <td><input type="text" class="w-sm f-att uppercase-input" placeholder="ATT..." value="${prefill.ATT || ''}"></td>
+            <td><input type="text" class="w-sm f-ship" list="dl-shipping" placeholder="Shipping Line..." value="${prefill.ShippingLine || ''}"></td>
+            <td>
+                <div style="display:flex; gap:4px; align-items:stretch;">
+                    <select class="w-lg f-trans"></select>
+                    <button type="button" class="btn-secondary btn-add-trans" style="padding: 0 10px; min-width:unset;" title="Add Carrier">➕</button>
+                </div>
+            </td>
+            <td><select class="w-sm f-size"></select></td>
+            <td><input type="text" class="w-container f-container" placeholder="ABCD1234567" title="4 letters + 7 numbers" value="${normaliseContainerNumber(prefill.ContainerNumber)}"></td>
+            
+            <td>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="text" class="w-sm f-seal uppercase-input" placeholder="Seal..." value="${prefill.SealNumber && prefill.SealNumber !== 'N/A' ? prefill.SealNumber : ''}">
+                    <label style="font-size:12px; font-weight: 700; cursor:pointer; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+                        <input type="checkbox" class="na-check" ${prefill.SealNumber === 'N/A' ? 'checked' : ''}>N/A
+                    </label>
+                </div>
+            </td>
+            
+            <td><input type="text" class="w-sm rate-input f-rate" placeholder="0.00" value="${formatMoney(prefill.Rate)}"></td>
+            <td><input type="text" class="w-md f-collect" list="dl-collect" placeholder="Collection Hub..." value="${prefill.CollectFrom || ''}"></td>
+            <td><input type="text" class="w-md f-deliver" list="dl-deliver" placeholder="Delivery Point..." value="${prefill.DeliverTo || ''}"></td>
+            
+            <td>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="text" class="w-md f-turnin-loc" list="dl-turnin" placeholder="Turn In Hub..." value="${prefill.ContainerTurnIn && prefill.ContainerTurnIn !== 'TBC' ? prefill.ContainerTurnIn : ''}">
+                    <label style="font-size:12px; font-weight: 700; cursor:pointer; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+                        <input type="checkbox" class="tbc-check" ${prefill.ContainerTurnIn === 'TBC' ? 'checked' : ''}>TBC
+                    </label>
+                </div>
+            </td>
+            
+            <td class="actions-col">
+                <div style="display:flex; gap:4px; justify-content:center;">
+                    <button type="button" class="btn-icon-blue btn-duplicate" title="Duplicate Row">📄</button>
+                    <button type="button" class="btn-danger-icon" title="Remove line">🗑️</button>
+                </div>
+            </td>
+        `;
+
+        const transSelect = tr.querySelector('.f-trans');
+        transSelect.innerHTML = '<option value="">Select Transporter...</option>' + TRANSPORTERS.map(t => `<option value="${t}">${t}</option>`).join('');
+        if (prefill.Transporter) {
+            if (!TRANSPORTERS.includes(prefill.Transporter)) transSelect.innerHTML += `<option value="${prefill.Transporter}">${prefill.Transporter}</option>`;
+            transSelect.value = prefill.Transporter;
+        }
+
+        tr.querySelector('.btn-add-trans').addEventListener('click', () => {
+            const newTrans = prompt("Enter new Transporter name:");
+            if (newTrans && newTrans.trim() !== "") {
+                const safeTrans = sanitizeText(newTrans.trim().toUpperCase());
+                if (!TRANSPORTERS.includes(safeTrans)) {
+                    TRANSPORTERS.push(safeTrans);
+                    document.querySelectorAll('.f-trans').forEach(sel => {
+                        const currentVal = sel.value;
+                        sel.innerHTML = '<option value="">Select Transporter...</option>' + TRANSPORTERS.map(t => `<option value="${t}">${t}</option>`).join('');
+                        sel.value = currentVal;
+                    });
+                }
+                transSelect.value = safeTrans;
+                triggerAutoSave();
+            }
+        });
+
+        const sizeSelect = tr.querySelector('.f-size');
+        sizeSelect.innerHTML = '<option value="">Size...</option>' + CONTAINER_SIZES.map(s => `<option value="${s}">${s}</option>`).join('');
+        if (prefill.ContainerSize) sizeSelect.value = prefill.ContainerSize;
+
+        tr.querySelectorAll('input, select').forEach(inp => {
+            inp.addEventListener('change', triggerAutoSave);
+            inp.addEventListener('keyup', triggerAutoSave);
+        });
+
+        tr.querySelectorAll('.uppercase-input').forEach(inp => {
+            inp.addEventListener('blur', (e) => {
+                e.target.value = sanitizeText(e.target.value).toUpperCase();
+                triggerAutoSave();
+            });
+        });
+
+        tr.querySelector('.btn-danger-icon').addEventListener('click', () => { 
+            tr.remove(); 
+            calculateSummary(); 
+            triggerAutoSave(); 
+        });
+        
+        tr.querySelector('.btn-duplicate').addEventListener('click', () => {
+            addLineRow({
+                Date: tr.querySelector('.f-date').value,
+                Reference: sanitizeText(tr.querySelector('.f-ref').value).toUpperCase(),
+                FileNo: sanitizeText(tr.querySelector('.f-file').value).toUpperCase(),
+                ATT: sanitizeText(tr.querySelector('.f-att').value).toUpperCase(),
+                ShippingLine: sanitizeText(tr.querySelector('.f-ship').value),
+                Transporter: tr.querySelector('.f-trans').value,
+                ContainerSize: tr.querySelector('.f-size').value,
+                ContainerNumber: "", 
+                SealNumber: "N/A", // Seal forced to N/A on manual dupe
+                Rate: tr.querySelector('.f-rate').value.replace(/,/g, ''),
+                CollectFrom: sanitizeText(tr.querySelector('.f-collect').value),
+                DeliverTo: sanitizeText(tr.querySelector('.f-deliver').value),
+                ContainerTurnIn: tr.querySelector('.tbc-check').checked ? "TBC" : sanitizeText(tr.querySelector('.f-turnin-loc').value)
+            });
+            showToast('Row duplicated successfully', 'success');
+            triggerAutoSave();
+        });
+        
+        tr.querySelector('.f-container').addEventListener('input', (e) => {
+            e.target.value = normaliseContainerNumber(e.target.value);
+            if(e.target.value.length === 11) e.target.style.borderColor = "var(--success)";
+            else e.target.style.borderColor = "var(--border-soft)";
+        });
+
+        const rateInput = tr.querySelector('.f-rate');
+        rateInput.addEventListener('blur', (e) => {
+            let val = e.target.value.replace(/[^0-9.]/g, '');
+            if (val) e.target.value = parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            calculateSummary();
+        });
+
+        const sealLoc = tr.querySelector('.f-seal');
+        const sealNa = tr.querySelector('.na-check');
+        sealNa.addEventListener('change', () => {
+            sealLoc.disabled = sealNa.checked;
+            if (sealNa.checked) sealLoc.value = '';
+            triggerAutoSave();
+        });
+        if(prefill.SealNumber === 'N/A') sealLoc.disabled = true;
+
+        const turnInLoc = tr.querySelector('.f-turnin-loc');
+        const turnInTbc = tr.querySelector('.tbc-check');
+        turnInTbc.addEventListener('change', () => {
+            turnInLoc.disabled = turnInTbc.checked;
+            if (turnInTbc.checked) turnInLoc.value = '';
+            triggerAutoSave();
+        });
+        if(prefill.ContainerTurnIn === 'TBC') turnInLoc.disabled = true;
+
+        tbody.appendChild(tr);
+        calculateSummary();
+        
+        const tableWrapper = document.getElementById('table-scroll-area');
+        tableWrapper.scrollTop = tableWrapper.scrollHeight;
+    }
+
+    function parseExcelDate(val) {
+        if (!val) return "";
+        if (val instanceof Date) return new Date(val.getTime() - (val.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        if (typeof val === 'number') {
+            const dt = new Date(Math.round((val - 25569) * 86400 * 1000));
+            return dt.toISOString().split('T')[0];
+        }
+        const parsed = new Date(val);
+        if (!isNaN(parsed)) return parsed.toISOString().split('T')[0];
+        return sanitizeText(val);
+    }
+
+    function mapRowData(rawRow) {
+        const cleanKey = (k) => String(k).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        const rawKeys = Object.keys(rawRow);
+        
+        const getVal = (...possibleKeys) => {
+            for (let pk of possibleKeys) {
+                const target = cleanKey(pk);
+                const foundKey = rawKeys.find(rk => cleanKey(rk) === target);
+                if (foundKey && rawRow[foundKey] !== undefined && rawRow[foundKey] !== null) {
+                    return sanitizeText(rawRow[foundKey]); 
+                }
+            }
+            return '';
+        };
+
+        return {
+            Date: getVal('Date', 'Datum'),
+            Reference: getVal('Reference', 'Ref'),
+            FileNo: getVal('FileNo', 'File Number', 'File'),
+            ATT: getVal('ATT', 'Attention'),
+            ShippingLine: getVal('Shipping Line', 'ShippingLine', 'Operator'),
+            Transporter: getVal('Transporter', 'Carrier'),
+            ContainerSize: getVal('Container Type', 'ContainerType', 'Container Size', 'ContainerSize', 'Size', 'EquipSize'),
+            ContainerNumber: getVal('Container Number', 'ContainerNumber', 'Container', 'Unit'),
+            SealNumber: getVal('Seal Number', 'SealNumber', 'Seal', 'SealNo'),
+            Rate: getVal('Rate', 'Rate ZAR', 'RateZAR', 'ZAR', 'Price'),
+            CollectFrom: getVal('Collection Hub', 'Collect From', 'CollectFrom', 'Collection'),
+            DeliverTo: getVal('Delivery Point', 'Deliver To', 'DeliverTo', 'Delivery'),
+            ContainerTurnIn: getVal('Turn In Hub', 'Container Turn In', 'ContainerTurnIn', 'Turn In', 'TurnIn')
+        };
+    }
+
+    function collectRows(strictValidation = true) {
+        const rows = [];
+        document.querySelectorAll('#lines-body tr').forEach(tr => {
+            const row = {
+                Date: tr.querySelector('.f-date').value,
+                Reference: sanitizeText(tr.querySelector('.f-ref').value).toUpperCase(),
+                FileNo: sanitizeText(tr.querySelector('.f-file').value).toUpperCase(),
+                ATT: sanitizeText(tr.querySelector('.f-att').value).toUpperCase(),
+                ShippingLine: sanitizeText(tr.querySelector('.f-ship').value),
+                Transporter: sanitizeText(tr.querySelector('.f-trans').value),
+                ContainerSize: sanitizeText(tr.querySelector('.f-size').value),
+                ContainerNumber: normaliseContainerNumber(tr.querySelector('.f-container').value),
+                SealNumber: tr.querySelector('.na-check').checked ? "N/A" : sanitizeText(tr.querySelector('.f-seal').value).toUpperCase(),
+                Rate: tr.querySelector('.f-rate').value.replace(/,/g, ''),
+                CollectFrom: sanitizeText(tr.querySelector('.f-collect').value),
+                DeliverTo: sanitizeText(tr.querySelector('.f-deliver').value),
+                ContainerTurnIn: tr.querySelector('.tbc-check').checked ? "TBC" : sanitizeText(tr.querySelector('.f-turnin-loc').value)
+            };
+
+            const isEmpty = !row.Date && !row.Reference && !row.FileNo && !row.ATT && !row.ShippingLine && 
+                            !row.Transporter && !row.ContainerSize && !row.ContainerNumber && (!row.SealNumber || row.SealNumber === 'N/A') &&
+                            !row.Rate && !row.CollectFrom && !row.DeliverTo && (!row.ContainerTurnIn || row.ContainerTurnIn === 'TBC');
+
+            if (!isEmpty || !strictValidation) rows.push({ rowObj: row, trElement: tr });
+        });
+        return rows;
+    }
+
+    function validateRows(rowsData) {
+        const invalidIndexes = [];
+        rowsData.forEach((item, index) => {
+            let invalid = false;
+            if (!item.rowObj.Transporter || !item.rowObj.ContainerSize || !/^[A-Z]{4}[0-9]{7}$/.test(item.rowObj.ContainerNumber) || !item.rowObj.Rate || Number(item.rowObj.Rate) <= 0) {
+                invalid = true;
+            }
+            if (invalid) {
+                invalidIndexes.push(index);
+                item.trElement.classList.add("invalid");
+            } else {
+                item.trElement.classList.remove("invalid");
+            }
+        });
+        return invalidIndexes;
+    }
+
+    async function onSubmit() {
+        const rowsData = collectRows(true);
+        if (rowsData.length === 0) return showToast('Please add data before generating manifests.', 'error');
+
+        const invalidIndexes = validateRows(rowsData);
+        if (invalidIndexes.length > 0) return showToast('Correct highlighted rows before submitting.', 'error');
+
+        const loader = document.getElementById("loader");
+        loader.classList.add("show");
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        try {
+            savePoints(
+                rowsData.map(r => r.rowObj.CollectFrom), 
+                rowsData.map(r => r.rowObj.DeliverTo),
+                rowsData.map(r => r.rowObj.ContainerTurnIn),
+                rowsData.map(r => r.rowObj.ShippingLine)
+            );
+
+            const zip = new JSZip();
+            for (const item of rowsData) {
+                const pdfArrayBuffer = await createProfessionalPdf(item.rowObj);
+                
+                const safeDate = (item.rowObj.Date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
+                const safeRef = (item.rowObj.Reference || "NO_REF").replace(/[^A-Za-z0-9]+/g, "_");
+                const safeCont = (item.rowObj.ContainerNumber || "NO_CONT");
+                const safeTrans = (item.rowObj.Transporter || "NO_TRANS").replace(/[^A-Za-z0-9]+/g, "_").slice(0, 20);
+                
+                const fileName = `${safeDate}_${safeRef}_${safeCont}_${safeTrans}.pdf`;
+                zip.file(fileName, pdfArrayBuffer);
+            }
+
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            downloadBlob(zipBlob, `Connect_Manifests_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.zip`);
+
+            saveToHistory(rowsData.map(r => r.rowObj));
+            clearCurrentList();
+            updateHistoryInfo();
+
+            localStorage.removeItem(STORAGE_KEY_DRAFT);
+            document.getElementById('draft-badge').classList.remove('visible');
+
+            showToast('Operations completed securely. ZIP downloaded.', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast(`System fault during document rendering: ${err.message}`, 'error');
+        } finally {
+            loader.classList.remove("show");
+        }
+    }
+
+    async function createProfessionalPdf(row) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+        
+        const brandNavy = [28, 37, 69];    
+        const brandBlue = [39, 52, 128];   
+        const brandOrange = [224, 68, 3];  
+
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, 595, 80, 'F');
+        doc.setFillColor(...brandBlue);
+        doc.rect(0, 80, 595, 5, 'F');
+        
+        if (mainLogoBase64) {
+            doc.addImage(mainLogoBase64, 'PNG', 40, 40 - (mainLogoHeight/2), 130, mainLogoHeight, '', 'FAST');
+        } else {
+            doc.setTextColor(...brandNavy);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(24);
+            doc.text("CONNECT LOGISTICS", 40, 50);
+        }
+
+        doc.setTextColor(100, 116, 139);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("TRANSPORT & CONTAINER WORK INSTRUCTION", 330, 55);
+
+        if (iconLogoBase64) {
+            doc.setGState(new doc.GState({opacity: 0.04})); 
+            doc.addImage(iconLogoBase64, 'PNG', 150, 300, 700, 700, '', 'FAST'); 
+            doc.setGState(new doc.GState({opacity: 1})); 
+        }
+
+        doc.setTextColor(100, 116, 139);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text("Gate 4, 265 Sydney Road, Congella, 4013", 555, 110, {align: "right"});
+        doc.text("PO Box 59019, Umbilo, 4075", 555, 122, {align: "right"});
+        doc.text("T: +27 (0) 31 700 6220", 555, 134, {align: "right"});
+        doc.setTextColor(...brandOrange);
+        doc.text("www.connectlogistics.za.com", 555, 146, {align: "right"});
+
+        // First Table
+        doc.autoTable({
+            startY: 110,
+            margin: { left: 40, right: 250 }, 
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 3 },
+            columnStyles: { 0: { fontStyle: 'bold', textColor: brandNavy, cellWidth: 80 } },
+            body: [
+                ['Date Issued:', row.Date || ''],
+                ['Reference ID:', row.Reference || ''],
+                ['File Number:', row.FileNo || ''],
+                ['ATT:', row.ATT || '']
+            ]
+        });
+
+        // Dynamic Layout Calculation to fix the text-overlap bug!
+        const table2StartY = doc.lastAutoTable.finalY + 20;
+
+        // Main Logistics Table - Fixed column widths to absolutely prevent word squishing
+        doc.autoTable({
+            startY: table2StartY,
+            theme: 'grid',
+            headStyles: { fillColor: brandBlue, textColor: 255, fontSize: 11, fontStyle: 'bold', halign: 'center' },
+            styles: { fontSize: 10, cellPadding: 8, textColor: 50, fillColor: false }, 
+            alternateRowStyles: { fillColor: false }, 
+            columnStyles: {
+                0: { cellWidth: 140, fontStyle: 'bold', textColor: brandNavy }, // Lock left column width perfectly
+                1: { cellWidth: 'auto' } // Let right column flex dynamically
+            },
+            body: [
+                [{ content: 'Logistics Manifest Summary', colSpan: 2, styles: { halign: 'center', fillColor: brandNavy, textColor: 255, fontStyle: 'bold' } }],
+                ['Shipping Line', row.ShippingLine || ''],
+                ['Transporter Profile', row.Transporter || ''],
+                ['Container Type', row.ContainerSize || ''],
+                ['Container Number', { content: row.ContainerNumber || '', styles: { fontStyle: 'bold', textColor: brandNavy } }],
+                ['Seal Number', { content: row.SealNumber || '', styles: { fontStyle: 'bold', textColor: brandNavy } }],
+                ['Allocated Rate', row.Rate ? `ZAR ${formatMoney(row.Rate)}` : ''],
+                ['Collection Origin', row.CollectFrom || ''],
+                ['Delivery Destination', row.DeliverTo || ''],
+                ['Turn-in Hub', row.ContainerTurnIn || '']
+            ]
+        });
+
+        const finalY = doc.lastAutoTable.finalY + 30;
+        doc.setGState(new doc.GState({opacity: 0.85})); 
+        doc.setFillColor(254, 242, 242); 
+        doc.rect(40, finalY, 515, 80, 'F'); 
+        
+        doc.setGState(new doc.GState({opacity: 1.0}));
+        doc.setDrawColor(239, 68, 68);   
+        doc.rect(40, finalY, 515, 80, 'S'); 
+
+        doc.setTextColor(220, 38, 38);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("IMPORTANT – MANDATORY CONTAINER INSPECTION", 55, finalY + 25);
+
+        doc.setTextColor(50, 50, 50);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(doc.splitTextToSize(SAFETY_NOTE, 480), 55, finalY + 45);
+
+        const footerY = 780;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(40, footerY - 15, 555, footerY - 15);
+        
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.text("Connect Supply Chain Services (Pty) Ltd t/a Connect Logistics • Reg No. 2010/013489/07 • VAT No. 4260257318", 297, footerY, {align: "center"});
+        doc.text("Directors: M J E Griffin (CEO), S R Ash (CFO), K B Higgins (COO), A A Dumas (Chairman)", 297, footerY + 12, {align: "center"});
+
+        return doc.output("arraybuffer");
+    }
+
+    function downloadBlob(blob, filename) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); window.URL.revokeObjectURL(url);
+    }
+
+    function loadHistory() { try { const raw = localStorage.getItem(STORAGE_KEY_HISTORY); return raw ? JSON.parse(raw) : []; } catch { return []; } }
+    function saveToHistory(rows) { const h = loadHistory(); const ts = new Date().toISOString(); rows.forEach(r => h.push({ ts, r })); localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(h)); }
+    function updateHistoryInfo() { const h = loadHistory(); document.getElementById("history-info").textContent = h.length ? `${h.length} Historical Records` : "No Archive Data"; }
+    
+    function clearCache() { 
+        if (!confirm("Wipe all local points, drafts, and database history? This is irreversible.")) return; 
+        localStorage.removeItem(STORAGE_KEY_HISTORY); 
+        localStorage.removeItem(STORAGE_KEY_POINTS); 
+        localStorage.removeItem(STORAGE_KEY_DRAFT);
+        updateHistoryInfo(); 
+        updateDatalists(); 
+        document.getElementById('draft-badge').classList.remove('visible');
+        clearCurrentList();
+        showToast('System cache effectively purged', 'success');
+    }
+    
+    function clearCurrentList() { document.getElementById("lines-body").innerHTML = ""; addLineRow({}); }
+
+    function exportCsvHistory() {
+        const history = loadHistory();
+        if (!history.length) return showToast('Local archive empty.', 'error');
+        const header = ["Timestamp", "Date", "Reference", "File No", "ATT", "Shipping Line", "Transporter", "Container Type", "Container Number", "Seal Number", "Rate (ZAR)", "Collection Hub", "Delivery Point", "Turn In Hub"];
+        const lines = [header.join(",")];
+        history.forEach(e => {
+            const r = e.r || {};
+            const row = [e.ts || "", safeCsv(r.Date), safeCsv(r.Reference), safeCsv(r.FileNo), safeCsv(r.ATT), safeCsv(r.ShippingLine), safeCsv(r.Transporter), safeCsv(r.ContainerSize), safeCsv(r.ContainerNumber), safeCsv(r.SealNumber), safeCsv(formatMoney(r.Rate) || ""), safeCsv(r.CollectFrom), safeCsv(r.DeliverTo), safeCsv(r.ContainerTurnIn)];
+            lines.push(row.join(","));
+        });
+        downloadBlob(new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }), `Logistics_Archive_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.csv`);
+        showToast('Historical ledger downloaded.', 'success');
+    }
+    
+    function safeCsv(val) { const str = (val || "").toString().replace(/"/g, '""'); return /[",\r\n]/.test(str) ? `"${str}"` : str; }
+
+    function importExcel() {
+        const input = document.getElementById("excel-upload");
+        if (!input.files || !input.files[0]) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), { type: "array", cellDates: true });
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+
+                if (!rows.length) { showToast('Import failed: Target sheet empty', 'error'); return; }
+
+                clearCurrentList();
+                document.getElementById("lines-body").innerHTML = ""; 
+                rows.forEach(rawRow => {
+                    const row = mapRowData(rawRow);
+                    row.Date = parseExcelDate(row.Date);
+                    if (!row.SealNumber) row.SealNumber = 'N/A';
+                    if (!row.ContainerTurnIn) row.ContainerTurnIn = 'TBC';
+                    addLineRow(row);
+                });
+                showToast(`Batch Import Success: ${rows.length} lines loaded.`, 'success');
+                triggerAutoSave();
+            } catch (err) { 
+                console.error(err);
+                showToast(`Import Error: Template mismatch`, 'error'); 
+            }
+            input.value = "";
+        };
+        reader.readAsArrayBuffer(input.files[0]);
+    }
+
+    async function downloadXlsxTemplate() {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Connect Logistics';
+        const sheet = workbook.addWorksheet('Data_Import');
+        const listSheet = workbook.addWorksheet('Lists', {state: 'hidden'}); 
+
+        TRANSPORTERS.forEach((t, i) => listSheet.getCell(`A${i+1}`).value = t);
+        CONTAINER_SIZES.forEach((s, i) => listSheet.getCell(`B${i+1}`).value = s);
+
+        sheet.columns = [
+            { header: 'Date', key: 'Date', width: 15 }, 
+            { header: 'Reference', key: 'Reference', width: 15 },
+            { header: 'File No', key: 'FileNo', width: 15 }, 
+            { header: 'ATT', key: 'ATT', width: 15 },
+            { header: 'Shipping Line', key: 'ShippingLine', width: 20 }, 
+            { header: 'Transporter', key: 'Transporter', width: 35 },
+            { header: 'Container Type', key: 'ContainerSize', width: 20 }, 
+            { header: 'Container Number', key: 'ContainerNumber', width: 20 },
+            { header: 'Seal Number', key: 'SealNumber', width: 20 },
+            { header: 'Rate', key: 'Rate', width: 12 }, 
+            { header: 'Collection Hub', key: 'CollectFrom', width: 25 },
+            { header: 'Delivery Point', key: 'DeliverTo', width: 25 }, 
+            { header: 'Turn In Hub', key: 'ContainerTurnIn', width: 25 },
+        ];
+
+        const headerRow = sheet.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C2545' } };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        for(let i = 2; i <= 100; i++) {
+            sheet.getCell(`A${i}`).numFmt = 'yyyy-mm-dd';
+            sheet.getCell(`F${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$A$1:$A$${TRANSPORTERS.length}`] };
+            sheet.getCell(`G${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$B$1:$B$${CONTAINER_SIZES.length}`] };
+            sheet.getCell(`H${i}`).dataValidation = { type: 'custom', allowBlank: true, showErrorMessage: true, errorStyle: 'warning', errorTitle: 'Format Error', error: 'Must be 4 letters followed by 7 numbers.', formulae: ['AND(LEN(H2)=11, ISNUMBER(VALUE(RIGHT(H2,7))))'] };
+            sheet.getCell(`J${i}`).numFmt = 'R #,##0.00';
+        }
+
+        downloadBlob(new Blob([await workbook.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'Connect_Port_Logistics_Template.xlsx');
+        showToast('Template generation complete', 'success');
+    }
+</script>
+</body>
+</html>
