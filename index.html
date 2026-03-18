@@ -289,6 +289,7 @@
                         <th>File No</th>
                         <th>ATT</th>
                         <th>Shipping Line</th>
+                        <th>Vessel Name</th>
                         <th>Transporter Selection</th>
                         <th>Container Type</th>
                         <th>Container Number</th>
@@ -383,10 +384,14 @@
     ];
 
     const CONTAINER_SIZES = [
-        "20ft Standard", "20ft Standard (Haz)", 
-        "20ft High Cube", "20ft High Cube (Haz)", 
-        "40ft Standard", "40ft Standard (Haz)", 
-        "40ft High Cube", "40ft High Cube (Haz)"
+        "20 FT NON-RF",
+        "40 FT NON-RF",
+        "20 FT HAZ NON-RF",
+        "40 FT HAZ NON-RF",
+        "20 FT RF",
+        "40 FT RF",
+        "20 FT HAZ RF",
+        "40 FT HAZ RF"
     ];
     
     const SAFETY_NOTE = "Please inspect the containers during handling, ensure that you view the containers, top, left/right side, back and front. Upon opening, the complete inside parameters of the unit. The drivers should do the same, when uplifting from the depot, please report any damages to us immediately.";
@@ -501,6 +506,8 @@
         const dlD = document.getElementById("dl-deliver");
         const dlT = document.getElementById("dl-turnin");
         const dlS = document.getElementById("dl-shipping");
+        const defaultDelivery = "Connect Logistics, Gate 4, 265 Sydney Rd, KwaKhangela, Durban, 4013";
+        if (!pts.deliver.includes(defaultDelivery)) pts.deliver.unshift(defaultDelivery);
         
         if(dlC) dlC.innerHTML = pts.collect.map(p => `<option value="${p}">`).join('');
         if(dlD) dlD.innerHTML = pts.deliver.map(p => `<option value="${p}">`).join('');
@@ -565,6 +572,7 @@
             <td><input type="text" class="w-sm f-file uppercase-input" placeholder="File..." value="${prefill.FileNo || ''}"></td>
             <td><input type="text" class="w-sm f-att uppercase-input" placeholder="ATT..." value="${prefill.ATT || ''}"></td>
             <td><input type="text" class="w-sm f-ship" list="dl-shipping" placeholder="Shipping Line..." value="${prefill.ShippingLine || ''}"></td>
+            <td><input type="text" class="w-sm f-vessel uppercase-input" placeholder="Vessel Name..." value="${prefill.VesselName || ''}"></td>
             <td>
                 <div style="display:flex; gap:4px; align-items:stretch;">
                     <select class="w-lg f-trans"></select>
@@ -710,14 +718,30 @@
 
     function parseExcelDate(val) {
         if (!val) return "";
-        if (val instanceof Date) return new Date(val.getTime() - (val.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        if (val instanceof Date) {
+            return new Date(val.getTime() - (val.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        }
         if (typeof val === 'number') {
             const dt = new Date(Math.round((val - 25569) * 86400 * 1000));
             return dt.toISOString().split('T')[0];
         }
-        const parsed = new Date(val);
-        if (!isNaN(parsed)) return parsed.toISOString().split('T')[0];
-        return sanitizeText(val);
+        const clean = sanitizeText(val);
+        if (!clean) return "";
+
+        // Try native parsing first
+        const native = new Date(clean);
+        if (!isNaN(native)) return native.toISOString().split('T')[0];
+
+        // Fallback: support DD.MM.YYYY style (e.g. 18.03.2026)
+        const dotMatch = clean.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+        if (dotMatch) {
+            const [_, d, m, y] = dotMatch;
+            const isoLike = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            const dotParsed = new Date(isoLike);
+            if (!isNaN(dotParsed)) return isoLike;
+        }
+
+        return clean;
     }
 
     function mapRowData(rawRow) {
@@ -741,6 +765,7 @@
             FileNo: getVal('FileNo', 'File Number', 'File'),
             ATT: getVal('ATT', 'Attention'),
             ShippingLine: getVal('Shipping Line', 'ShippingLine', 'Operator'),
+            VesselName: getVal('Vessel Name', 'VesselName', 'Vessel'),
             Transporter: getVal('Transporter', 'Carrier'),
             ContainerSize: getVal('Container Type', 'ContainerType', 'Container Size', 'ContainerSize', 'Size', 'EquipSize'),
             ContainerNumber: getVal('Container Number', 'ContainerNumber', 'Container', 'Unit'),
@@ -761,6 +786,7 @@
                 FileNo: sanitizeText(tr.querySelector('.f-file').value).toUpperCase(),
                 ATT: sanitizeText(tr.querySelector('.f-att').value).toUpperCase(),
                 ShippingLine: sanitizeText(tr.querySelector('.f-ship').value),
+                VesselName: sanitizeText(tr.querySelector('.f-vessel').value).toUpperCase(),
                 Transporter: sanitizeText(tr.querySelector('.f-trans').value),
                 ContainerSize: sanitizeText(tr.querySelector('.f-size').value),
                 ContainerNumber: normaliseContainerNumber(tr.querySelector('.f-container').value),
@@ -771,7 +797,7 @@
                 ContainerTurnIn: tr.querySelector('.tbc-check').checked ? "TBC" : sanitizeText(tr.querySelector('.f-turnin-loc').value)
             };
 
-            const isEmpty = !row.Date && !row.Reference && !row.FileNo && !row.ATT && !row.ShippingLine && 
+            const isEmpty = !row.Date && !row.Reference && !row.FileNo && !row.ATT && !row.ShippingLine && !row.VesselName &&
                             !row.Transporter && !row.ContainerSize && !row.ContainerNumber && (!row.SealNumber || row.SealNumber === 'N/A') &&
                             !row.Rate && !row.CollectFrom && !row.DeliverTo && (!row.ContainerTurnIn || row.ContainerTurnIn === 'TBC');
 
@@ -923,6 +949,7 @@
             body: [
                 [{ content: 'Logistics Manifest Summary', colSpan: 2, styles: { halign: 'center', fillColor: brandNavy, textColor: 255, fontStyle: 'bold' } }],
                 ['Shipping Line', row.ShippingLine || ''],
+                ['Vessel Name', row.VesselName || ''],
                 ['Transporter Profile', row.Transporter || ''],
                 ['Container Type', row.ContainerSize || ''],
                 ['Container Number', { content: row.ContainerNumber || '', styles: { fontStyle: 'bold', textColor: brandNavy } }],
@@ -994,11 +1021,11 @@
     function exportCsvHistory() {
         const history = loadHistory();
         if (!history.length) return showToast('Local archive empty.', 'error');
-        const header = ["Timestamp", "Date", "Reference", "File No", "ATT", "Shipping Line", "Transporter", "Container Type", "Container Number", "Seal Number", "Rate (ZAR)", "Collection Hub", "Delivery Point", "Turn In Hub"];
+        const header = ["Timestamp", "Date", "Reference", "File No", "ATT", "Shipping Line", "Vessel Name", "Transporter", "Container Type", "Container Number", "Seal Number", "Rate (ZAR)", "Collection Hub", "Delivery Point", "Turn In Hub"];
         const lines = [header.join(",")];
         history.forEach(e => {
             const r = e.r || {};
-            const row = [e.ts || "", safeCsv(r.Date), safeCsv(r.Reference), safeCsv(r.FileNo), safeCsv(r.ATT), safeCsv(r.ShippingLine), safeCsv(r.Transporter), safeCsv(r.ContainerSize), safeCsv(r.ContainerNumber), safeCsv(r.SealNumber), safeCsv(formatMoney(r.Rate) || ""), safeCsv(r.CollectFrom), safeCsv(r.DeliverTo), safeCsv(r.ContainerTurnIn)];
+            const row = [e.ts || "", safeCsv(r.Date), safeCsv(r.Reference), safeCsv(r.FileNo), safeCsv(r.ATT), safeCsv(r.ShippingLine), safeCsv(r.VesselName), safeCsv(r.Transporter), safeCsv(r.ContainerSize), safeCsv(r.ContainerNumber), safeCsv(r.SealNumber), safeCsv(formatMoney(r.Rate) || ""), safeCsv(r.CollectFrom), safeCsv(r.DeliverTo), safeCsv(r.ContainerTurnIn)];
             lines.push(row.join(","));
         });
         downloadBlob(new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }), `Logistics_Archive_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.csv`);
@@ -1044,9 +1071,11 @@
         workbook.creator = 'Connect Logistics';
         const sheet = workbook.addWorksheet('Data_Import');
         const listSheet = workbook.addWorksheet('Lists', {state: 'hidden'}); 
+        const DELIVERY_POINT_DEFAULT = "Connect Logistics, Gate 4, 265 Sydney Rd, KwaKhangela, Durban, 4013";
 
         TRANSPORTERS.forEach((t, i) => listSheet.getCell(`A${i+1}`).value = t);
         CONTAINER_SIZES.forEach((s, i) => listSheet.getCell(`B${i+1}`).value = s);
+        listSheet.getCell('C1').value = DELIVERY_POINT_DEFAULT;
 
         sheet.columns = [
             { header: 'Date', key: 'Date', width: 15 }, 
@@ -1054,13 +1083,14 @@
             { header: 'File No', key: 'FileNo', width: 15 }, 
             { header: 'ATT', key: 'ATT', width: 15 },
             { header: 'Shipping Line', key: 'ShippingLine', width: 20 }, 
+            { header: 'Vessel Name', key: 'VesselName', width: 25 },
             { header: 'Transporter', key: 'Transporter', width: 35 },
             { header: 'Container Type', key: 'ContainerSize', width: 20 }, 
             { header: 'Container Number', key: 'ContainerNumber', width: 20 },
-            { header: 'Seal Number', key: 'SealNumber', width: 20 },
+            { header: 'Seal Number', key: 'SealNumber', width: 22 },
             { header: 'Rate', key: 'Rate', width: 12 }, 
             { header: 'Collection Hub', key: 'CollectFrom', width: 25 },
-            { header: 'Delivery Point', key: 'DeliverTo', width: 25 }, 
+            { header: 'Delivery Point', key: 'DeliverTo', width: 45 }, 
             { header: 'Turn In Hub', key: 'ContainerTurnIn', width: 25 },
         ];
 
@@ -1069,12 +1099,53 @@
         headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C2545' } };
         headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
+        // Header notes (comments) instead of row placeholders
+        const sealHint = 'If N/A leave blank';
+        sheet.getCell('J1').note = sealHint;
+        sheet.getCell('N1').note = sealHint;
+
         for(let i = 2; i <= 100; i++) {
+            // Date column - strong date formatting
             sheet.getCell(`A${i}`).numFmt = 'yyyy-mm-dd';
-            sheet.getCell(`F${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$A$1:$A$${TRANSPORTERS.length}`] };
-            sheet.getCell(`G${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$B$1:$B$${CONTAINER_SIZES.length}`] };
-            sheet.getCell(`H${i}`).dataValidation = { type: 'custom', allowBlank: true, showErrorMessage: true, errorStyle: 'warning', errorTitle: 'Format Error', error: 'Must be 4 letters followed by 7 numbers.', formulae: ['AND(LEN(H2)=11, ISNUMBER(VALUE(RIGHT(H2,7))))'] };
-            sheet.getCell(`J${i}`).numFmt = 'R #,##0.00';
+            sheet.getCell(`A${i}`).dataValidation = {
+                type: 'date',
+                allowBlank: true,
+                showErrorMessage: true,
+                errorStyle: 'warning',
+                errorTitle: 'Invalid Date',
+                error: 'Please enter a valid calendar date. Formats like 18.03.2026 will be normalised.',
+            };
+
+            // Drop-downs for transporter and container type
+            sheet.getCell(`G${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$A$1:$A$${TRANSPORTERS.length}`] };
+            sheet.getCell(`H${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$B$1:$B$${CONTAINER_SIZES.length}`] };
+
+            // Container number format enforcement
+            sheet.getCell(`I${i}`).dataValidation = {
+                type: 'custom',
+                allowBlank: true,
+                showErrorMessage: true,
+                errorStyle: 'warning',
+                errorTitle: 'Format Error',
+                error: 'Must be 4 letters followed by 7 numbers.',
+                formulae: ['AND(LEN(I2)=11, ISNUMBER(VALUE(RIGHT(I2,7))))']
+            };
+
+            // Rate numeric format
+            sheet.getCell(`K${i}`).numFmt = 'R #,##0.00';
+
+            // Delivery Point dropdown suggestion list (still allows manual entry)
+            sheet.getCell(`M${i}`).dataValidation = {
+                type: 'list',
+                allowBlank: true,
+                showErrorMessage: false,
+                formulae: [`Lists!$C$1:$C$1`]
+            };
+
+            // Text-only style for all non-numeric logical fields
+            ['B','C','D','E','F','G','H','I','J','L','M','N'].forEach(col => {
+                sheet.getCell(`${col}${i}`).numFmt = '@';
+            });
         }
 
         downloadBlob(new Blob([await workbook.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'Connect_Port_Logistics_Template.xlsx');
