@@ -209,6 +209,38 @@
         #loader.show { display: flex; opacity: 1; }
         .spinner { width: 50px; height: 50px; border: 4px solid #e2e8f0; border-top-color: var(--connect-blue); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Combine Modal Styles */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px);
+            z-index: 11000; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;
+        }
+        .modal-overlay.show { display: flex; opacity: 1; }
+        .modal-card {
+            background: var(--white); width: 90%; max-width: 700px; border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg); overflow: hidden; transform: translateY(20px); transition: transform 0.3s ease;
+        }
+        .modal-overlay.show .modal-card { transform: translateY(0); }
+        .modal-header {
+            background: var(--logic-navy); color: var(--white); padding: 20px 32px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header h3 { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+        .modal-body { padding: 32px; max-height: 70vh; overflow-y: auto; }
+        .modal-footer { padding: 20px 32px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
+        
+        .duplicate-group {
+            border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 16px; overflow: hidden;
+        }
+        .group-header {
+            background: #f1f5f9; padding: 12px 16px; font-weight: 700; color: var(--logic-navy);
+            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-soft);
+        }
+        .group-item {
+            padding: 10px 16px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 12px; font-size: 13px;
+        }
+        .group-item:last-child { border-bottom: none; }
+        .group-checkbox { width: 18px; height: 18px; cursor: pointer; }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -332,6 +364,28 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="combine-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Combine Matching Reference Suggestions</h3>
+            <button type="button" class="btn-ghost" style="color:white; border:none; font-size: 20px;" onclick="closeCombineModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 20px; color: var(--text-muted); font-size: 14px;">
+                We've detected multiple lines with matching <strong>Reference</strong> and <strong>File No</strong>. 
+                Would you like to combine these into single manifests where applicable?
+            </p>
+            <div id="duplicate-groups-container">
+                <!-- Duplicate groups will be injected here -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeCombineModal()">Proceed Individually</button>
+            <button type="button" class="btn-primary" id="btn-confirm-combine">Confirm & Generate PDFs</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // --- Security Block: Disabling Inspect / View Source ---
     document.addEventListener('contextmenu', event => event.preventDefault());
@@ -384,18 +438,18 @@
     ];
 
     const CONTAINER_SIZES = [
-"20 FT",
-"20 FT HAZ",
-"20 FT RF",
-"20 FT HAZ RF",
-"20 FT NON-RF",
-"20 FT HAZ NON-RF",
-"40 FT",
-"40 FT HAZ",
-"40 FT RF",
-"40 FT HAZ RF",
-"40 FT NON-RF",
-"40 FT HAZ NON-RF",
+        "20 FT",
+        "20 FT HAZ",
+        "20 FT RF",
+        "20 FT HAZ RF",
+        "20 FT NON-RF",
+        "20 FT HAZ NON-RF",
+        "40 FT",
+        "40 FT HAZ",
+        "40 FT RF",
+        "40 FT HAZ RF",
+        "40 FT NON-RF",
+        "40 FT HAZ NON-RF",
     ];
     
     const SAFETY_NOTE = "Please inspect the containers during handling, ensure that you view the containers, top, left/right side, back and front. Upon opening, the complete inside parameters of the unit. The drivers should do the same, when uplifting from the depot, please report any damages to us immediately.";
@@ -834,6 +888,93 @@
         const invalidIndexes = validateRows(rowsData);
         if (invalidIndexes.length > 0) return showToast('Correct highlighted rows before submitting.', 'error');
 
+        // Check for duplicates
+        const duplicates = detectDuplicates(rowsData);
+        if (Object.keys(duplicates).length > 0) {
+            showCombineModal(duplicates, rowsData);
+        } else {
+            await processSubmission(rowsData, []);
+        }
+    }
+
+    function detectDuplicates(rowsData) {
+        const groups = {};
+        rowsData.forEach((item, index) => {
+            const key = `${item.rowObj.Reference}|${item.rowObj.FileNo}`;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(index);
+        });
+
+        const duplicates = {};
+        for (const key in groups) {
+            if (groups[key].length > 1) {
+                duplicates[key] = groups[key];
+            }
+        }
+        return duplicates;
+    }
+
+    function showCombineModal(duplicates, rowsData) {
+        const container = document.getElementById('duplicate-groups-container');
+        container.innerHTML = '';
+
+        for (const key in duplicates) {
+            const indices = duplicates[key];
+            const [ref, file] = key.split('|');
+            
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'duplicate-group';
+            
+            groupDiv.innerHTML = `
+                <div class="group-header">
+                    <span>Ref: ${ref} | File: ${file}</span>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+                        <input type="checkbox" class="group-checkbox-all" checked> Combine All
+                    </label>
+                </div>
+                <div class="group-items">
+                    ${indices.map(idx => `
+                        <div class="group-item">
+                            <input type="checkbox" class="group-checkbox-item" data-index="${idx}" checked>
+                            <span>${rowsData[idx].rowObj.ContainerNumber} | ${rowsData[idx].rowObj.Transporter}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            const allCheckbox = groupDiv.querySelector('.group-checkbox-all');
+            const itemCheckboxes = groupDiv.querySelectorAll('.group-checkbox-item');
+            
+            allCheckbox.addEventListener('change', () => {
+                itemCheckboxes.forEach(cb => cb.checked = allCheckbox.checked);
+            });
+            
+            container.appendChild(groupDiv);
+        }
+
+        const modal = document.getElementById('combine-modal');
+        modal.classList.add('show');
+
+        document.getElementById('btn-confirm-combine').onclick = async () => {
+            const selectedToCombine = [];
+            container.querySelectorAll('.duplicate-group').forEach(group => {
+                const checkedItems = Array.from(group.querySelectorAll('.group-checkbox-item:checked'))
+                                         .map(cb => parseInt(cb.getAttribute('data-index')));
+                if (checkedItems.length > 1) {
+                    selectedToCombine.push(checkedItems);
+                }
+            });
+            
+            closeCombineModal();
+            await processSubmission(rowsData, selectedToCombine);
+        };
+    }
+
+    function closeCombineModal() {
+        document.getElementById('combine-modal').classList.remove('show');
+    }
+
+    async function processSubmission(rowsData, combinedIndicesGroups) {
         const loader = document.getElementById("loader");
         loader.classList.add("show");
 
@@ -848,9 +989,10 @@
             );
 
             const zip = new JSZip();
+            
+            // 1. Generate Individual PDFs for EVERY line
             for (const item of rowsData) {
                 const pdfArrayBuffer = await createProfessionalPdf(item.rowObj);
-                
                 const safeDate = (item.rowObj.Date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
                 const safeRef = (item.rowObj.Reference || "NO_REF").replace(/[^A-Za-z0-9]+/g, "_");
                 const safeCont = (item.rowObj.ContainerNumber || "NO_CONT");
@@ -858,6 +1000,20 @@
                 
                 const fileName = `${safeDate}_${safeRef}_${safeCont}_${safeTrans}.pdf`;
                 zip.file(fileName, pdfArrayBuffer);
+            }
+
+            // 2. Generate Combined PDFs for selected groups
+            for (const groupIndices of combinedIndicesGroups) {
+                const combinedRows = groupIndices.map(idx => rowsData[idx].rowObj);
+                const combinedPdfBuffer = await createCombinedPdf(combinedRows);
+                
+                const firstRow = combinedRows[0];
+                const safeDate = (firstRow.Date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
+                const safeRef = (firstRow.Reference || "NO_REF").replace(/[^A-Za-z0-9]+/g, "_");
+                const allContainers = combinedRows.map(r => (r.ContainerNumber || "NO_CONT")).join("_");
+                
+                const fileName = `${safeDate}_${safeRef}_${allContainers}_combined.pdf`;
+                zip.file(fileName, combinedPdfBuffer);
             }
 
             const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -877,6 +1033,146 @@
         } finally {
             loader.classList.remove("show");
         }
+    }
+
+    async function createCombinedPdf(rows) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+        
+        const brandNavy = [28, 37, 69];    
+        const brandBlue = [39, 52, 128];   
+        const brandOrange = [224, 68, 3];  
+
+        const firstRow = rows[0];
+
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, 595, 80, 'F');
+        doc.setFillColor(...brandBlue);
+        doc.rect(0, 80, 595, 5, 'F');
+        
+        if (mainLogoBase64) {
+            doc.addImage(mainLogoBase64, 'PNG', 40, 40 - (mainLogoHeight/2), 130, mainLogoHeight, '', 'FAST');
+        }
+
+        doc.setTextColor(100, 116, 139);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("COMBINED TRANSPORT WORK INSTRUCTION", 330, 55);
+
+        if (iconLogoBase64) {
+            doc.setGState(new doc.GState({opacity: 0.04})); 
+            doc.addImage(iconLogoBase64, 'PNG', 150, 300, 700, 700, '', 'FAST'); 
+            doc.setGState(new doc.GState({opacity: 1})); 
+        }
+
+        doc.setTextColor(100, 116, 139);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text("Gate 4, 265 Sydney Road, Congella, 4013", 555, 110, {align: "right"});
+        doc.text("PO Box 59019, Umbilo, 4075", 555, 122, {align: "right"});
+        doc.text("T: +27 (0) 31 700 6220", 555, 134, {align: "right"});
+        doc.setTextColor(...brandOrange);
+        doc.text("www.connectlogistics.za.com", 555, 146, {align: "right"});
+
+        // Uniform Fields
+        doc.autoTable({
+            startY: 110,
+            margin: { left: 40, right: 250 }, 
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 3 },
+            columnStyles: { 0: { fontStyle: 'bold', textColor: brandNavy, cellWidth: 80 } },
+            body: [
+                ['Date Issued:', firstRow.Date || ''],
+                ['Reference ID:', firstRow.Reference || ''],
+                ['File Number:', firstRow.FileNo || ''],
+                ['ATT:', firstRow.ATT || '']
+            ]
+        });
+
+        const table2StartY = doc.lastAutoTable.finalY + 20;
+
+        // Multi-Value Fields & Calculated Rate
+        const totalRate = rows.reduce((sum, r) => sum + (parseFloat(r.Rate) || 0), 0);
+        
+        const formatList = (arr) => arr.filter((v, i, self) => v && self.indexOf(v) === i).join(', ');
+
+        doc.autoTable({
+            startY: table2StartY,
+            theme: 'grid',
+            headStyles: { fillColor: brandBlue, textColor: 255, fontSize: 11, fontStyle: 'bold', halign: 'center' },
+            styles: { fontSize: 9, cellPadding: 6, textColor: 50, lineColor: [200, 200, 200] }, 
+            columnStyles: {
+                0: { cellWidth: 140, fontStyle: 'bold', textColor: brandNavy, fillColor: [245, 247, 250] },
+                1: { cellWidth: 'auto' }
+            },
+            body: [
+                [{ content: 'COMBINED SHIPMENT OVERVIEW', colSpan: 2, styles: { halign: 'center', fillColor: brandNavy, textColor: 255, fontStyle: 'bold', fontSize: 11, cellPadding: 8 } }],
+                ['Shipping Line', formatList(rows.map(r => r.ShippingLine))],
+                ['Vessel Name', formatList(rows.map(r => r.VesselName))],
+                ['Transporter Profile', formatList(rows.map(r => r.Transporter))],
+                ['Collection Origin', formatList(rows.map(r => r.CollectFrom))],
+                ['Delivery Destination', formatList(rows.map(r => r.DeliverTo))],
+                ['Turn-in Hub', formatList(rows.map(r => r.ContainerTurnIn))]
+            ]
+        });
+
+        doc.autoTable({
+            startY: doc.lastAutoTable.finalY + 20,
+            theme: 'grid',
+            headStyles: { fillColor: brandNavy, textColor: 255, fontSize: 11, fontStyle: 'bold', halign: 'center', cellPadding: 8 },
+            styles: { fontSize: 9, cellPadding: 6, textColor: 50, lineColor: [200, 200, 200] },
+            columnStyles: {
+                0: { cellWidth: 40, fontStyle: 'bold', halign: 'center' },
+                1: { cellWidth: 120 },
+                2: { halign: 'center' },
+                3: { halign: 'center' },
+                4: { halign: 'center' }
+            },
+            body: rows.map((r, i) => [
+                i + 1,
+                r.ContainerNumber || 'N/A',
+                r.ContainerSize || 'N/A',
+                (r.SealNumber && r.SealNumber !== 'N/A') ? r.SealNumber : 'N/A',
+                `ZAR ${formatMoney(r.Rate) || '0.00'}`
+            ]),
+            head: [['#', 'Container Number', 'Type', 'Seal Number', 'Allocated Rate']]
+        });
+
+        let currentY = doc.lastAutoTable.finalY + 25;
+
+        // Total Allocated Cost
+         doc.setFont("helvetica", "bold");
+         doc.setFontSize(11);
+         doc.setTextColor(...brandBlue);
+         doc.text(`Total Allocated Cost ZAR for ${rows.length} Containers: ZAR ${formatMoney(totalRate)}`, 555, currentY, {align: "right"});
+
+        // Mandatory Inspection Note
+        const finalY = currentY + 25;
+        doc.setGState(new doc.GState({opacity: 0.85})); 
+        doc.setFillColor(254, 242, 242); 
+        doc.rect(40, finalY, 515, 80, 'F'); 
+        doc.setGState(new doc.GState({opacity: 1.0}));
+        doc.setDrawColor(239, 68, 68);   
+        doc.rect(40, finalY, 515, 80, 'S'); 
+        doc.setTextColor(220, 38, 38);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("IMPORTANT – MANDATORY CONTAINER INSPECTION", 55, finalY + 25);
+        doc.setTextColor(50, 50, 50);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(doc.splitTextToSize(SAFETY_NOTE, 480), 55, finalY + 45);
+
+        // Footer
+        const footerY = 780;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(40, footerY - 15, 555, footerY - 15);
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.text("Connect Supply Chain Services (Pty) Ltd t/a Connect Logistics • Reg No. 2010/013489/07 • VAT No. 4260257318", 297, footerY, {align: "center"});
+        doc.text("Directors: M J E Griffin (CEO), S R Ash (CFO), K B Higgins (COO), A A Dumas (Chairman)", 297, footerY + 12, {align: "center"});
+
+        return doc.output("arraybuffer");
     }
 
     async function createProfessionalPdf(row) {
