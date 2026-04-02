@@ -217,30 +217,39 @@
         }
         .modal-overlay.show { display: flex; opacity: 1; }
         .modal-card {
-            background: var(--white); width: 90%; max-width: 700px; border-radius: var(--radius-lg);
+            background: var(--white); width: 95%; max-width: 900px; border-radius: var(--radius-lg);
             box-shadow: var(--shadow-lg); overflow: hidden; transform: translateY(20px); transition: transform 0.3s ease;
+            display: flex; flex-direction: column; max-height: 90vh;
         }
         .modal-overlay.show .modal-card { transform: translateY(0); }
         .modal-header {
-            background: var(--logic-navy); color: var(--white); padding: 20px 32px;
-            display: flex; justify-content: space-between; align-items: center;
+            background: var(--logic-navy); color: var(--white); padding: 16px 24px;
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
         }
         .modal-header h3 { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
-        .modal-body { padding: 32px; max-height: 70vh; overflow-y: auto; }
-        .modal-footer { padding: 20px 32px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
+        .modal-body { padding: 24px; overflow-y: auto; flex-grow: 1; background: #f8fafc; }
+        .modal-footer { padding: 16px 24px; background: var(--white); border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; flex-shrink: 0; }
         
+        .modal-controls {
+            background: #fff; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;
+            border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
         .duplicate-group {
-            border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 16px; overflow: hidden;
+            background: #fff; border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 12px; overflow: hidden;
+            box-shadow: var(--shadow-sm);
         }
         .group-header {
-            background: #f1f5f9; padding: 12px 16px; font-weight: 700; color: var(--logic-navy);
+            background: #f1f5f9; padding: 10px 16px; font-weight: 700; color: var(--logic-navy);
             display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-soft);
         }
+        .group-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1px; background: #f1f5f9; }
         .group-item {
-            padding: 10px 16px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 12px; font-size: 13px;
+            background: #fff; padding: 8px 16px; display: flex; align-items: center; gap: 12px; font-size: 12px;
         }
-        .group-item:last-child { border-bottom: none; }
-        .group-checkbox { width: 18px; height: 18px; cursor: pointer; }
+        .group-checkbox { width: 16px; height: 16px; cursor: pointer; }
+        .group-count { font-size: 11px; background: var(--connect-blue); color: #fff; padding: 2px 6px; border-radius: 10px; }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -256,6 +265,7 @@
 <div id="loader">
     <div class="spinner"></div>
     <h2 style="color: var(--logic-navy); margin-top: 24px;">Processing Operations...</h2>
+    <p id="loader-progress" style="color: var(--connect-blue); font-size: 18px; font-weight: 800; margin-top: 12px;">0% Complete</p>
     <p style="color: var(--text-muted); margin-top: 8px; font-weight: 500;">Compiling documents and generating secure package</p>
 </div>
 
@@ -320,6 +330,7 @@
                         <th>Reference</th>
                         <th>File No</th>
                         <th>ATT</th>
+                        <th>Client</th>
                         <th>Shipping Line</th>
                         <th>Vessel Name</th>
                         <th>Transporter Selection</th>
@@ -371,10 +382,17 @@
             <button type="button" class="btn-ghost" style="color:white; border:none; font-size: 20px;" onclick="closeCombineModal()">×</button>
         </div>
         <div class="modal-body">
-            <p style="margin-bottom: 20px; color: var(--text-muted); font-size: 14px;">
-                We've detected multiple lines with matching <strong>Reference</strong> and <strong>File No</strong>. 
-                Would you like to combine these into single manifests where applicable?
-            </p>
+            <div class="modal-controls">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:700; color:var(--logic-navy); font-size:13px; cursor:pointer;">
+                        <input type="checkbox" id="modal-select-all" checked> Bulk Combine All
+                    </label>
+                    <span id="modal-summary-text" style="font-size:12px; color:var(--text-muted);"></span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="modal-search" placeholder="Search Reference/File..." style="width: 250px; padding: 6px 12px;">
+                </div>
+            </div>
             <div id="duplicate-groups-container">
                 <!-- Duplicate groups will be injected here -->
             </div>
@@ -629,6 +647,12 @@
             <td><input type="text" class="w-sm f-ref uppercase-input" placeholder="Ref..." value="${prefill.Reference || ''}"></td>
             <td><input type="text" class="w-sm f-file uppercase-input" placeholder="File..." value="${prefill.FileNo || ''}"></td>
             <td><input type="text" class="w-sm f-att uppercase-input" placeholder="ATT..." value="${prefill.ATT || ''}"></td>
+            <td>
+                <select class="w-sm f-client">
+                    <option value="Connect Logistics" ${prefill.Client === 'Connect Logistics' ? 'selected' : ''}>Connect Logistics</option>
+                    <option value="IWS" ${prefill.Client === 'IWS' ? 'selected' : ''}>IWS</option>
+                </select>
+            </td>
             <td><input type="text" class="w-sm f-ship" list="dl-shipping" placeholder="Shipping Line..." value="${prefill.ShippingLine || ''}"></td>
             <td><input type="text" class="w-sm f-vessel uppercase-input" placeholder="Vessel Name..." value="${prefill.VesselName || ''}"></td>
             <td>
@@ -722,6 +746,7 @@
                 Reference: sanitizeText(tr.querySelector('.f-ref').value).toUpperCase(),
                 FileNo: sanitizeText(tr.querySelector('.f-file').value).toUpperCase(),
                 ATT: sanitizeText(tr.querySelector('.f-att').value).toUpperCase(),
+                Client: tr.querySelector('.f-client').value,
                 ShippingLine: sanitizeText(tr.querySelector('.f-ship').value),
                 Transporter: tr.querySelector('.f-trans').value,
                 ContainerSize: tr.querySelector('.f-size').value,
@@ -822,6 +847,7 @@
             Reference: getVal('Reference', 'Ref'),
             FileNo: getVal('FileNo', 'File Number', 'File'),
             ATT: getVal('ATT', 'Attention'),
+            Client: getVal('Client'),
             ShippingLine: getVal('Shipping Line', 'ShippingLine', 'Operator'),
             VesselName: getVal('Vessel Name', 'VesselName', 'Vessel'),
             Transporter: getVal('Transporter', 'Carrier'),
@@ -843,6 +869,7 @@
                 Reference: sanitizeText(tr.querySelector('.f-ref').value).toUpperCase(),
                 FileNo: sanitizeText(tr.querySelector('.f-file').value).toUpperCase(),
                 ATT: sanitizeText(tr.querySelector('.f-att').value).toUpperCase(),
+                Client: tr.querySelector('.f-client').value,
                 ShippingLine: sanitizeText(tr.querySelector('.f-ship').value),
                 VesselName: sanitizeText(tr.querySelector('.f-vessel').value).toUpperCase(),
                 Transporter: sanitizeText(tr.querySelector('.f-trans').value),
@@ -899,11 +926,13 @@
 
     function detectDuplicates(rowsData) {
         const groups = {};
-        rowsData.forEach((item, index) => {
-            const key = `${item.rowObj.Reference}|${item.rowObj.FileNo}`;
+        for (let i = 0; i < rowsData.length; i++) {
+            const row = rowsData[i].rowObj;
+            if (!row.Reference || !row.FileNo) continue;
+            const key = `${row.Reference}|${row.FileNo}`;
             if (!groups[key]) groups[key] = [];
-            groups[key].push(index);
-        });
+            groups[key].push(i);
+        }
 
         const duplicates = {};
         for (const key in groups) {
@@ -916,47 +945,72 @@
 
     function showCombineModal(duplicates, rowsData) {
         const container = document.getElementById('duplicate-groups-container');
+        const selectAll = document.getElementById('modal-select-all');
+        const searchInput = document.getElementById('modal-search');
+        const summaryText = document.getElementById('modal-summary-text');
+        
         container.innerHTML = '';
+        const keys = Object.keys(duplicates);
+        summaryText.textContent = `${keys.length} logical groups found.`;
 
-        for (const key in duplicates) {
-            const indices = duplicates[key];
-            const [ref, file] = key.split('|');
-            
-            const groupDiv = document.createElement('div');
-            groupDiv.className = 'duplicate-group';
-            
-            groupDiv.innerHTML = `
-                <div class="group-header">
-                    <span>Ref: ${ref} | File: ${file}</span>
-                    <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
-                        <input type="checkbox" class="group-checkbox-all" checked> Combine All
-                    </label>
-                </div>
-                <div class="group-items">
-                    ${indices.map(idx => `
-                        <div class="group-item">
-                            <input type="checkbox" class="group-checkbox-item" data-index="${idx}" checked>
-                            <span>${rowsData[idx].rowObj.ContainerNumber} | ${rowsData[idx].rowObj.Transporter}</span>
+        const renderGroups = (filter = '') => {
+            container.innerHTML = '';
+            keys.forEach(key => {
+                if (filter && !key.toLowerCase().includes(filter.toLowerCase())) return;
+
+                const indices = duplicates[key];
+                const [ref, file] = key.split('|');
+                
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'duplicate-group';
+                
+                groupDiv.innerHTML = `
+                    <div class="group-header">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="group-count">${indices.length} Lines</span>
+                            <span>Ref: ${ref} | File: ${file}</span>
                         </div>
-                    `).join('')}
-                </div>
-            `;
-            
-            const allCheckbox = groupDiv.querySelector('.group-checkbox-all');
-            const itemCheckboxes = groupDiv.querySelectorAll('.group-checkbox-item');
-            
-            allCheckbox.addEventListener('change', () => {
-                itemCheckboxes.forEach(cb => cb.checked = allCheckbox.checked);
+                        <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+                            <input type="checkbox" class="group-checkbox-all" checked> Combine Group
+                        </label>
+                    </div>
+                    <div class="group-items">
+                        ${indices.map(idx => `
+                            <div class="group-item">
+                                <input type="checkbox" class="group-checkbox-item" data-index="${idx}" checked>
+                                <div style="display:flex; flex-direction:column;">
+                                    <span style="font-weight:700; color:var(--connect-blue);">${rowsData[idx].rowObj.ContainerNumber}</span>
+                                    <span style="font-size:10px; color:var(--text-muted);">${rowsData[idx].rowObj.Transporter.slice(0, 30)}...</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                const groupAllCb = groupDiv.querySelector('.group-checkbox-all');
+                const itemCbs = groupDiv.querySelectorAll('.group-checkbox-item');
+                
+                groupAllCb.addEventListener('change', () => {
+                    itemCbs.forEach(cb => cb.checked = groupAllCb.checked);
+                });
+                
+                container.appendChild(groupDiv);
             });
-            
-            container.appendChild(groupDiv);
-        }
+        };
+
+        renderGroups();
+
+        searchInput.oninput = (e) => renderGroups(e.target.value);
+        selectAll.onchange = (e) => {
+            container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = e.target.checked);
+        };
 
         const modal = document.getElementById('combine-modal');
         modal.classList.add('show');
 
         document.getElementById('btn-confirm-combine').onclick = async () => {
             const selectedToCombine = [];
+            // We need to re-scan all rendered groups to get the final state
             container.querySelectorAll('.duplicate-group').forEach(group => {
                 const checkedItems = Array.from(group.querySelectorAll('.group-checkbox-item:checked'))
                                          .map(cb => parseInt(cb.getAttribute('data-index')));
@@ -976,9 +1030,11 @@
 
     async function processSubmission(rowsData, combinedIndicesGroups) {
         const loader = document.getElementById("loader");
+        const progressEl = document.getElementById("loader-progress");
         loader.classList.add("show");
+        progressEl.textContent = "Initializing...";
 
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         try {
             savePoints(
@@ -989,34 +1045,72 @@
             );
 
             const zip = new JSZip();
+            const totalTasks = rowsData.length + combinedIndicesGroups.length;
+            let completedTasks = 0;
+
+            const updateProgress = () => {
+                const percent = Math.round((completedTasks / totalTasks) * 100);
+                progressEl.textContent = `${percent}% Complete (${completedTasks}/${totalTasks})`;
+            };
+
+            // Process in chunks of 10 to keep UI responsive
+            const CHUNK_SIZE = 10;
             
-            // 1. Generate Individual PDFs for EVERY line
-            for (const item of rowsData) {
-                const pdfArrayBuffer = await createProfessionalPdf(item.rowObj);
-                const safeDate = (item.rowObj.Date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
-                const safeRef = (item.rowObj.Reference || "NO_REF").replace(/[^A-Za-z0-9]+/g, "_");
-                const safeCont = (item.rowObj.ContainerNumber || "NO_CONT");
-                const safeTrans = (item.rowObj.Transporter || "NO_TRANS").replace(/[^A-Za-z0-9]+/g, "_").slice(0, 20);
-                
-                const fileName = `${safeDate}_${safeRef}_${safeCont}_${safeTrans}.pdf`;
-                zip.file(fileName, pdfArrayBuffer);
+            // 1. Generate Individual PDFs
+            for (let i = 0; i < rowsData.length; i += CHUNK_SIZE) {
+                const chunk = rowsData.slice(i, i + CHUNK_SIZE);
+                for (const item of chunk) {
+                    const pdfArrayBuffer = await createProfessionalPdf(item.rowObj);
+                    const safeDate = (item.rowObj.Date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
+                    const safeRef = truncateFilename(item.rowObj.Reference, 20);
+                    const safeCont = truncateFilename(item.rowObj.ContainerNumber, 11);
+                    const safeTrans = truncateFilename(item.rowObj.Transporter, 20);
+                    
+                    const fileName = `${safeDate}_${safeRef}_${safeCont}_${safeTrans}.pdf`;
+                    zip.file(fileName, pdfArrayBuffer);
+                    completedTasks++;
+                }
+                updateProgress();
+                // Brief pause to let browser breathe
+                await new Promise(r => setTimeout(r, 10));
             }
 
-            // 2. Generate Combined PDFs for selected groups
-            for (const groupIndices of combinedIndicesGroups) {
-                const combinedRows = groupIndices.map(idx => rowsData[idx].rowObj);
-                const combinedPdfBuffer = await createCombinedPdf(combinedRows);
-                
-                const firstRow = combinedRows[0];
-                const safeDate = (firstRow.Date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
-                const safeRef = (firstRow.Reference || "NO_REF").replace(/[^A-Za-z0-9]+/g, "_");
-                const allContainers = combinedRows.map(r => (r.ContainerNumber || "NO_CONT")).join("_");
-                
-                const fileName = `${safeDate}_${safeRef}_${allContainers}_combined.pdf`;
-                zip.file(fileName, combinedPdfBuffer);
+            // 2. Generate Combined PDFs
+            for (let i = 0; i < combinedIndicesGroups.length; i += CHUNK_SIZE) {
+                const chunk = combinedIndicesGroups.slice(i, i + CHUNK_SIZE);
+                for (const groupIndices of chunk) {
+                    const combinedRows = groupIndices.map(idx => rowsData[idx].rowObj);
+                    const combinedPdfBuffer = await createCombinedPdf(combinedRows);
+                    
+                    const firstRow = combinedRows[0];
+                    const safeDate = (firstRow.Date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
+                    const safeRef = truncateFilename(firstRow.Reference, 20);
+                    
+                    // For combined, we list the first container and count to keep name short
+                    const contCount = combinedRows.length;
+                    const firstCont = truncateFilename(combinedRows[0].ContainerNumber, 11);
+                    
+                    const fileName = `${safeDate}_${safeRef}_${firstCont}_plus_${contCount-1}_combined.pdf`;
+                    zip.file(fileName, combinedPdfBuffer);
+                    completedTasks++;
+                }
+                updateProgress();
+                await new Promise(r => setTimeout(r, 10));
             }
 
-            const zipBlob = await zip.generateAsync({ type: "blob" });
+            progressEl.textContent = "Finalizing ZIP Package...";
+            await new Promise(r => setTimeout(r, 50));
+
+            const zipBlob = await zip.generateAsync({ 
+                type: "blob",
+                compression: "DEFLATE",
+                compressionOptions: { level: 6 }
+            }, (metadata) => {
+                if (metadata.percent) {
+                    progressEl.textContent = `Compressing: ${Math.round(metadata.percent)}%`;
+                }
+            });
+
             downloadBlob(zipBlob, `Connect_Manifests_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.zip`);
 
             saveToHistory(rowsData.map(r => r.rowObj));
@@ -1035,15 +1129,10 @@
         }
     }
 
-    async function createCombinedPdf(rows) {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-        
+    function drawPdfHeader(doc, title) {
         const brandNavy = [28, 37, 69];    
         const brandBlue = [39, 52, 128];   
         const brandOrange = [224, 68, 3];  
-
-        const firstRow = rows[0];
 
         doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, 595, 80, 'F');
@@ -1052,18 +1141,17 @@
         
         if (mainLogoBase64) {
             doc.addImage(mainLogoBase64, 'PNG', 40, 40 - (mainLogoHeight/2), 130, mainLogoHeight, '', 'FAST');
+        } else {
+            doc.setTextColor(...brandNavy);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(24);
+            doc.text("CONNECT LOGISTICS", 40, 50);
         }
 
         doc.setTextColor(100, 116, 139);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
-        doc.text("COMBINED TRANSPORT WORK INSTRUCTION", 330, 55);
-
-        if (iconLogoBase64) {
-            doc.setGState(new doc.GState({opacity: 0.04})); 
-            doc.addImage(iconLogoBase64, 'PNG', 150, 300, 700, 700, '', 'FAST'); 
-            doc.setGState(new doc.GState({opacity: 1})); 
-        }
+        doc.text(title, 330, 55);
 
         doc.setTextColor(100, 116, 139);
         doc.setFont("helvetica", "normal");
@@ -1073,6 +1161,36 @@
         doc.text("T: +27 (0) 31 700 6220", 555, 134, {align: "right"});
         doc.setTextColor(...brandOrange);
         doc.text("www.connectlogistics.za.com", 555, 146, {align: "right"});
+    }
+
+    function drawPdfFooter(doc) {
+        const footerY = 780;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(40, footerY - 15, 555, footerY - 15);
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.text("Connect Supply Chain Services (Pty) Ltd t/a Connect Logistics • Reg No. 2010/013489/07 • VAT No. 4260257318", 297, footerY, {align: "center"});
+        doc.text("Directors: M J E Griffin (CEO), S R Ash (CFO), K B Higgins (COO), A A Dumas (Chairman)", 297, footerY + 12, {align: "center"});
+    }
+
+    async function createCombinedPdf(rows) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+        const firstRow = rows[0];
+        const brandNavy = [28, 37, 69];    
+        const brandBlue = [39, 52, 128];   
+
+        const drawLayout = () => {
+            drawPdfHeader(doc, "COMBINED TRANSPORT WORK INSTRUCTION");
+            drawPdfFooter(doc);
+            if (iconLogoBase64) {
+                doc.setGState(new doc.GState({opacity: 0.04})); 
+                doc.addImage(iconLogoBase64, 'PNG', 150, 300, 700, 700, '', 'FAST'); 
+                doc.setGState(new doc.GState({opacity: 1})); 
+            }
+        };
+
+        drawLayout();
 
         // Uniform Fields
         doc.autoTable({
@@ -1085,15 +1203,12 @@
                 ['Date Issued:', firstRow.Date || ''],
                 ['Reference ID:', firstRow.Reference || ''],
                 ['File Number:', firstRow.FileNo || ''],
-                ['ATT:', firstRow.ATT || '']
+                ['ATT:', firstRow.ATT || ''],
+                ['Client:', firstRow.Client || '']
             ]
         });
 
         const table2StartY = doc.lastAutoTable.finalY + 20;
-
-        // Multi-Value Fields & Calculated Rate
-        const totalRate = rows.reduce((sum, r) => sum + (parseFloat(r.Rate) || 0), 0);
-        
         const formatList = (arr) => arr.filter((v, i, self) => v && self.indexOf(v) === i).join(', ');
 
         doc.autoTable({
@@ -1135,42 +1250,49 @@
                 (r.SealNumber && r.SealNumber !== 'N/A') ? r.SealNumber : 'N/A',
                 `ZAR ${formatMoney(r.Rate) || '0.00'}`
             ]),
-            head: [['#', 'Container Number', 'Type', 'Seal Number', 'Allocated Rate']]
+            head: [['#', 'Container Number', 'Type', 'Seal Number', 'Allocated Rate']],
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) {
+                    drawLayout();
+                }
+            },
+            margin: { top: 160, bottom: 60 }
         });
 
-        let currentY = doc.lastAutoTable.finalY + 25;
+        const totalRate = rows.reduce((sum, r) => sum + (parseFloat(r.Rate) || 0), 0);
+        
+        // Add Total, Inspection Note, and Footer using a safe multi-page check
+        const checkSpace = (height) => {
+            if (doc.lastAutoTable.finalY + height > 750) {
+                doc.addPage();
+                drawLayout();
+                return 160; // New start Y
+            }
+            return doc.lastAutoTable.finalY + 20;
+        };
 
-        // Total Allocated Cost
-         doc.setFont("helvetica", "bold");
-         doc.setFontSize(11);
-         doc.setTextColor(...brandBlue);
-         doc.text(`Total Allocated Cost ZAR for ${rows.length} Containers: ZAR ${formatMoney(totalRate)}`, 555, currentY, {align: "right"});
+        let currentY = checkSpace(150);
 
-        // Mandatory Inspection Note
-        const finalY = currentY + 25;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...brandBlue);
+        doc.text(`Total Allocated Cost ZAR for ${rows.length} Containers: ZAR ${formatMoney(totalRate)}`, 555, currentY, {align: "right"});
+
+        currentY += 25;
         doc.setGState(new doc.GState({opacity: 0.85})); 
         doc.setFillColor(254, 242, 242); 
-        doc.rect(40, finalY, 515, 80, 'F'); 
+        doc.rect(40, currentY, 515, 80, 'F'); 
         doc.setGState(new doc.GState({opacity: 1.0}));
         doc.setDrawColor(239, 68, 68);   
-        doc.rect(40, finalY, 515, 80, 'S'); 
+        doc.rect(40, currentY, 515, 80, 'S'); 
         doc.setTextColor(220, 38, 38);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
-        doc.text("IMPORTANT – MANDATORY CONTAINER INSPECTION", 55, finalY + 25);
+        doc.text("IMPORTANT – MANDATORY CONTAINER INSPECTION", 55, currentY + 25);
         doc.setTextColor(50, 50, 50);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
-        doc.text(doc.splitTextToSize(SAFETY_NOTE, 480), 55, finalY + 45);
-
-        // Footer
-        const footerY = 780;
-        doc.setDrawColor(200, 200, 200);
-        doc.line(40, footerY - 15, 555, footerY - 15);
-        doc.setTextColor(150, 150, 150);
-        doc.setFontSize(8);
-        doc.text("Connect Supply Chain Services (Pty) Ltd t/a Connect Logistics • Reg No. 2010/013489/07 • VAT No. 4260257318", 297, footerY, {align: "center"});
-        doc.text("Directors: M J E Griffin (CEO), S R Ash (CFO), K B Higgins (COO), A A Dumas (Chairman)", 297, footerY + 12, {align: "center"});
+        doc.text(doc.splitTextToSize(SAFETY_NOTE, 480), 55, currentY + 45);
 
         return doc.output("arraybuffer");
     }
@@ -1178,44 +1300,20 @@
     async function createProfessionalPdf(row) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-        
         const brandNavy = [28, 37, 69];    
         const brandBlue = [39, 52, 128];   
-        const brandOrange = [224, 68, 3];  
 
-        doc.setFillColor(255, 255, 255);
-        doc.rect(0, 0, 595, 80, 'F');
-        doc.setFillColor(...brandBlue);
-        doc.rect(0, 80, 595, 5, 'F');
-        
-        if (mainLogoBase64) {
-            doc.addImage(mainLogoBase64, 'PNG', 40, 40 - (mainLogoHeight/2), 130, mainLogoHeight, '', 'FAST');
-        } else {
-            doc.setTextColor(...brandNavy);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(24);
-            doc.text("CONNECT LOGISTICS", 40, 50);
-        }
+        const drawLayout = () => {
+            drawPdfHeader(doc, "TRANSPORT & CONTAINER WORK INSTRUCTION");
+            drawPdfFooter(doc);
+            if (iconLogoBase64) {
+                doc.setGState(new doc.GState({opacity: 0.04})); 
+                doc.addImage(iconLogoBase64, 'PNG', 150, 300, 700, 700, '', 'FAST'); 
+                doc.setGState(new doc.GState({opacity: 1})); 
+            }
+        };
 
-        doc.setTextColor(100, 116, 139);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text("TRANSPORT & CONTAINER WORK INSTRUCTION", 330, 55);
-
-        if (iconLogoBase64) {
-            doc.setGState(new doc.GState({opacity: 0.04})); 
-            doc.addImage(iconLogoBase64, 'PNG', 150, 300, 700, 700, '', 'FAST'); 
-            doc.setGState(new doc.GState({opacity: 1})); 
-        }
-
-        doc.setTextColor(100, 116, 139);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text("Gate 4, 265 Sydney Road, Congella, 4013", 555, 110, {align: "right"});
-        doc.text("PO Box 59019, Umbilo, 4075", 555, 122, {align: "right"});
-        doc.text("T: +27 (0) 31 700 6220", 555, 134, {align: "right"});
-        doc.setTextColor(...brandOrange);
-        doc.text("www.connectlogistics.za.com", 555, 146, {align: "right"});
+        drawLayout();
 
         // First Table
         doc.autoTable({
@@ -1228,23 +1326,21 @@
                 ['Date Issued:', row.Date || ''],
                 ['Reference ID:', row.Reference || ''],
                 ['File Number:', row.FileNo || ''],
-                ['ATT:', row.ATT || '']
+                ['ATT:', row.ATT || ''],
+                ['Client:', row.Client || '']
             ]
         });
 
-        // Dynamic Layout Calculation to fix the text-overlap bug!
-        const table2StartY = doc.lastAutoTable.finalY + 20;
-
-        // Main Logistics Table - Fixed column widths to absolutely prevent word squishing
+        // Main Logistics Table
         doc.autoTable({
-            startY: table2StartY,
+            startY: doc.lastAutoTable.finalY + 20,
             theme: 'grid',
             headStyles: { fillColor: brandBlue, textColor: 255, fontSize: 11, fontStyle: 'bold', halign: 'center' },
             styles: { fontSize: 10, cellPadding: 8, textColor: 50, fillColor: false }, 
             alternateRowStyles: { fillColor: false }, 
             columnStyles: {
-                0: { cellWidth: 140, fontStyle: 'bold', textColor: brandNavy }, // Lock left column width perfectly
-                1: { cellWidth: 'auto' } // Let right column flex dynamically
+                0: { cellWidth: 140, fontStyle: 'bold', textColor: brandNavy },
+                1: { cellWidth: 'auto' }
             },
             body: [
                 [{ content: 'Logistics Manifest Summary', colSpan: 2, styles: { halign: 'center', fillColor: brandNavy, textColor: 255, fontStyle: 'bold' } }],
@@ -1258,36 +1354,39 @@
                 ['Collection Origin', row.CollectFrom || ''],
                 ['Delivery Destination', row.DeliverTo || ''],
                 ['Turn-in Hub', row.ContainerTurnIn || '']
-            ]
+            ],
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) {
+                    drawLayout();
+                }
+            },
+            margin: { top: 160, bottom: 60 }
         });
 
-        const finalY = doc.lastAutoTable.finalY + 30;
+        const checkSpace = (height) => {
+            if (doc.lastAutoTable.finalY + height > 750) {
+                doc.addPage();
+                drawLayout();
+                return 160; 
+            }
+            return doc.lastAutoTable.finalY + 30;
+        };
+
+        const finalY = checkSpace(100);
         doc.setGState(new doc.GState({opacity: 0.85})); 
         doc.setFillColor(254, 242, 242); 
         doc.rect(40, finalY, 515, 80, 'F'); 
-        
         doc.setGState(new doc.GState({opacity: 1.0}));
         doc.setDrawColor(239, 68, 68);   
         doc.rect(40, finalY, 515, 80, 'S'); 
-
         doc.setTextColor(220, 38, 38);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
         doc.text("IMPORTANT – MANDATORY CONTAINER INSPECTION", 55, finalY + 25);
-
         doc.setTextColor(50, 50, 50);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.text(doc.splitTextToSize(SAFETY_NOTE, 480), 55, finalY + 45);
-
-        const footerY = 780;
-        doc.setDrawColor(200, 200, 200);
-        doc.line(40, footerY - 15, 555, footerY - 15);
-        
-        doc.setTextColor(150, 150, 150);
-        doc.setFontSize(8);
-        doc.text("Connect Supply Chain Services (Pty) Ltd t/a Connect Logistics • Reg No. 2010/013489/07 • VAT No. 4260257318", 297, footerY, {align: "center"});
-        doc.text("Directors: M J E Griffin (CEO), S R Ash (CFO), K B Higgins (COO), A A Dumas (Chairman)", 297, footerY + 12, {align: "center"});
 
         return doc.output("arraybuffer");
     }
@@ -1321,11 +1420,11 @@
     function exportCsvHistory() {
         const history = loadHistory();
         if (!history.length) return showToast('Local archive empty.', 'error');
-        const header = ["Timestamp", "Date", "Reference", "File No", "ATT", "Shipping Line", "Vessel Name", "Transporter", "Container Type", "Container Number", "Seal Number", "Rate (ZAR)", "Collection Hub", "Delivery Point", "Turn In Hub"];
+        const header = ["Timestamp", "Date", "Reference", "File No", "ATT", "Client", "Shipping Line", "Vessel Name", "Transporter", "Container Type", "Container Number", "Seal Number", "Rate (ZAR)", "Collection Hub", "Delivery Point", "Turn In Hub"];
         const lines = [header.join(",")];
         history.forEach(e => {
             const r = e.r || {};
-            const row = [e.ts || "", safeCsv(r.Date), safeCsv(r.Reference), safeCsv(r.FileNo), safeCsv(r.ATT), safeCsv(r.ShippingLine), safeCsv(r.VesselName), safeCsv(r.Transporter), safeCsv(r.ContainerSize), safeCsv(r.ContainerNumber), safeCsv(r.SealNumber), safeCsv(formatMoney(r.Rate) || ""), safeCsv(r.CollectFrom), safeCsv(r.DeliverTo), safeCsv(r.ContainerTurnIn)];
+            const row = [e.ts || "", safeCsv(r.Date), safeCsv(r.Reference), safeCsv(r.FileNo), safeCsv(r.ATT), safeCsv(r.Client), safeCsv(r.ShippingLine), safeCsv(r.VesselName), safeCsv(r.Transporter), safeCsv(r.ContainerSize), safeCsv(r.ContainerNumber), safeCsv(r.SealNumber), safeCsv(formatMoney(r.Rate) || ""), safeCsv(r.CollectFrom), safeCsv(r.DeliverTo), safeCsv(r.ContainerTurnIn)];
             lines.push(row.join(","));
         });
         downloadBlob(new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }), `Logistics_Archive_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.csv`);
@@ -1333,6 +1432,12 @@
     }
     
     function safeCsv(val) { const str = (val || "").toString().replace(/"/g, '""'); return /[",\r\n]/.test(str) ? `"${str}"` : str; }
+
+    function truncateFilename(str, limit = 30) {
+        if (!str) return "NA";
+        const clean = str.replace(/[^A-Za-z0-9]+/g, "_");
+        return clean.length > limit ? clean.slice(0, limit) : clean;
+    }
 
     function importExcel() {
         const input = document.getElementById("excel-upload");
@@ -1372,16 +1477,19 @@
         const sheet = workbook.addWorksheet('Data_Import');
         const listSheet = workbook.addWorksheet('Lists', {state: 'hidden'}); 
         const DELIVERY_POINT_DEFAULT = "Connect Logistics, Gate 4, 265 Sydney Rd, KwaKhangela, Durban, 4013";
+        const CLIENTS = ["Connect Logistics", "IWS"];
 
         TRANSPORTERS.forEach((t, i) => listSheet.getCell(`A${i+1}`).value = t);
         CONTAINER_SIZES.forEach((s, i) => listSheet.getCell(`B${i+1}`).value = s);
         listSheet.getCell('C1').value = DELIVERY_POINT_DEFAULT;
+        CLIENTS.forEach((c, i) => listSheet.getCell(`D${i+1}`).value = c);
 
         sheet.columns = [
             { header: 'Date', key: 'Date', width: 15 }, 
             { header: 'Reference', key: 'Reference', width: 15 },
             { header: 'File No', key: 'FileNo', width: 15 }, 
             { header: 'ATT', key: 'ATT', width: 15 },
+            { header: 'Client', key: 'Client', width: 20 },
             { header: 'Shipping Line', key: 'ShippingLine', width: 20 }, 
             { header: 'Vessel Name', key: 'VesselName', width: 25 },
             { header: 'Transporter', key: 'Transporter', width: 35 },
@@ -1401,8 +1509,8 @@
 
         // Header notes (comments) instead of row placeholders
         const sealHint = 'If N/A leave blank';
-        sheet.getCell('J1').note = sealHint;
-        sheet.getCell('N1').note = sealHint;
+        sheet.getCell('K1').note = sealHint;
+        sheet.getCell('O1').note = sealHint;
 
         for(let i = 2; i <= 100; i++) {
             // Date column - strong date formatting
@@ -1416,26 +1524,27 @@
                 error: 'Please enter a valid calendar date. Formats like 18.03.2026 will be normalised.',
             };
 
-            // Drop-downs for transporter and container type
-            sheet.getCell(`G${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$A$1:$A$${TRANSPORTERS.length}`] };
-            sheet.getCell(`H${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$B$1:$B$${CONTAINER_SIZES.length}`] };
+            // Drop-downs for client, transporter and container type
+            sheet.getCell(`E${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$D$1:$D$${CLIENTS.length}`] };
+            sheet.getCell(`H${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$A$1:$A$${TRANSPORTERS.length}`] };
+            sheet.getCell(`I${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$B$1:$B$${CONTAINER_SIZES.length}`] };
 
             // Container number format enforcement
-            sheet.getCell(`I${i}`).dataValidation = {
+            sheet.getCell(`J${i}`).dataValidation = {
                 type: 'custom',
                 allowBlank: true,
                 showErrorMessage: true,
                 errorStyle: 'warning',
                 errorTitle: 'Format Error',
                 error: 'Must be 4 letters followed by 7 numbers.',
-                formulae: ['AND(LEN(I2)=11, ISNUMBER(VALUE(RIGHT(I2,7))))']
+                formulae: [`AND(LEN(J${i})=11, ISNUMBER(VALUE(RIGHT(J${i},7))))`]
             };
 
             // Rate numeric format
-            sheet.getCell(`K${i}`).numFmt = 'R #,##0.00';
+            sheet.getCell(`L${i}`).numFmt = 'R #,##0.00';
 
             // Delivery Point dropdown suggestion list (still allows manual entry)
-            sheet.getCell(`M${i}`).dataValidation = {
+            sheet.getCell(`N${i}`).dataValidation = {
                 type: 'list',
                 allowBlank: true,
                 showErrorMessage: false,
@@ -1443,7 +1552,7 @@
             };
 
             // Text-only style for all non-numeric logical fields
-            ['B','C','D','E','F','G','H','I','J','L','M','N'].forEach(col => {
+            ['B','C','D','E','F','G','H','I','J','K','M','N','O'].forEach(col => {
                 sheet.getCell(`${col}${i}`).numFmt = '@';
             });
         }
