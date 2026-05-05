@@ -333,6 +333,7 @@
                         <th>Client</th>
                         <th>Shipping Line</th>
                         <th>Vessel Name</th>
+                        <th>Vessel ETA</th>
                         <th>Transporter Selection</th>
                         <th>Container Type</th>
                         <th>Container Number</th>
@@ -655,6 +656,7 @@
             </td>
             <td><input type="text" class="w-sm f-ship" list="dl-shipping" placeholder="Shipping Line..." value="${prefill.ShippingLine || ''}"></td>
             <td><input type="text" class="w-sm f-vessel uppercase-input" placeholder="Vessel Name..." value="${prefill.VesselName || ''}"></td>
+            <td><input type="date" class="w-date f-vessel-eta" value="${prefill.VesselETA || ''}"></td>
             <td>
                 <div style="display:flex; gap:4px; align-items:stretch;">
                     <select class="w-lg f-trans"></select>
@@ -748,9 +750,11 @@
                 ATT: sanitizeText(tr.querySelector('.f-att').value).toUpperCase(),
                 Client: tr.querySelector('.f-client').value,
                 ShippingLine: sanitizeText(tr.querySelector('.f-ship').value),
+                VesselName: sanitizeText(tr.querySelector('.f-vessel').value).toUpperCase(),
+                VesselETA: tr.querySelector('.f-vessel-eta').value,
                 Transporter: tr.querySelector('.f-trans').value,
                 ContainerSize: tr.querySelector('.f-size').value,
-                ContainerNumber: "", 
+                ContainerNumber: "",
                 SealNumber: "N/A", // Seal forced to N/A on manual dupe
                 Rate: tr.querySelector('.f-rate').value.replace(/,/g, ''),
                 CollectFrom: sanitizeText(tr.querySelector('.f-collect').value),
@@ -850,6 +854,7 @@
             Client: getVal('Client'),
             ShippingLine: getVal('Shipping Line', 'ShippingLine', 'Operator'),
             VesselName: getVal('Vessel Name', 'VesselName', 'Vessel'),
+            VesselETA: getVal('Vessel ETA', 'VesselETA', 'ETA', 'Estimated Time of Arrival'),
             Transporter: getVal('Transporter', 'Carrier'),
             ContainerSize: getVal('Container Type', 'ContainerType', 'Container Size', 'ContainerSize', 'Size', 'EquipSize'),
             ContainerNumber: getVal('Container Number', 'ContainerNumber', 'Container', 'Unit'),
@@ -872,6 +877,7 @@
                 Client: tr.querySelector('.f-client').value,
                 ShippingLine: sanitizeText(tr.querySelector('.f-ship').value),
                 VesselName: sanitizeText(tr.querySelector('.f-vessel').value).toUpperCase(),
+                VesselETA: tr.querySelector('.f-vessel-eta').value,
                 Transporter: sanitizeText(tr.querySelector('.f-trans').value),
                 ContainerSize: sanitizeText(tr.querySelector('.f-size').value),
                 ContainerNumber: normaliseContainerNumber(tr.querySelector('.f-container').value),
@@ -1209,7 +1215,25 @@
         });
 
         const table2StartY = doc.lastAutoTable.finalY + 20;
-        const formatList = (arr) => arr.filter((v, i, self) => v && self.indexOf(v) === i).join(', ');
+        const formatList = (arr) => {
+            const nonEmpty = arr.filter(v => v && v.trim() !== '');
+            if (nonEmpty.length === 0) return '';
+            if (nonEmpty.length === 1) return nonEmpty[0];
+
+            // Normalize address for comparison (remove postal codes and extra spaces)
+            const normalize = (str) => str.replace(/,\s*\d{4,5}\s*$/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+            // Group by normalized address
+            const groups = new Map();
+            nonEmpty.forEach(val => {
+                const key = normalize(val);
+                if (!groups.has(key)) groups.set(key, val);
+            });
+
+            const unique = [...groups.values()];
+            if (unique.length === 1) return unique[0];
+            return unique.join(', ');
+        };
 
         doc.autoTable({
             startY: table2StartY,
@@ -1224,6 +1248,7 @@
                 [{ content: 'COMBINED SHIPMENT OVERVIEW', colSpan: 2, styles: { halign: 'center', fillColor: brandNavy, textColor: 255, fontStyle: 'bold', fontSize: 11, cellPadding: 8 } }],
                 ['Shipping Line', formatList(rows.map(r => r.ShippingLine))],
                 ['Vessel Name', formatList(rows.map(r => r.VesselName))],
+                ['Vessel ETA', formatList(rows.map(r => r.VesselETA))],
                 ['Transporter Profile', formatList(rows.map(r => r.Transporter))],
                 ['Collection Origin', formatList(rows.map(r => r.CollectFrom))],
                 ['Delivery Destination', formatList(rows.map(r => r.DeliverTo))],
@@ -1346,6 +1371,7 @@
                 [{ content: 'Logistics Manifest Summary', colSpan: 2, styles: { halign: 'center', fillColor: brandNavy, textColor: 255, fontStyle: 'bold' } }],
                 ['Shipping Line', row.ShippingLine || ''],
                 ['Vessel Name', row.VesselName || ''],
+                ['Vessel ETA', row.VesselETA || ''],
                 ['Transporter Profile', row.Transporter || ''],
                 ['Container Type', row.ContainerSize || ''],
                 ['Container Number', { content: row.ContainerNumber || '', styles: { fontStyle: 'bold', textColor: brandNavy } }],
@@ -1420,11 +1446,11 @@
     function exportCsvHistory() {
         const history = loadHistory();
         if (!history.length) return showToast('Local archive empty.', 'error');
-        const header = ["Timestamp", "Date", "Reference", "File No", "ATT", "Client", "Shipping Line", "Vessel Name", "Transporter", "Container Type", "Container Number", "Seal Number", "Rate (ZAR)", "Collection Hub", "Delivery Point", "Turn In Hub"];
+        const header = ["Timestamp", "Date", "Reference", "File No", "ATT", "Client", "Shipping Line", "Vessel Name", "Vessel ETA", "Transporter", "Container Type", "Container Number", "Seal Number", "Rate (ZAR)", "Collection Hub", "Delivery Point", "Turn In Hub"];
         const lines = [header.join(",")];
         history.forEach(e => {
             const r = e.r || {};
-            const row = [e.ts || "", safeCsv(r.Date), safeCsv(r.Reference), safeCsv(r.FileNo), safeCsv(r.ATT), safeCsv(r.Client), safeCsv(r.ShippingLine), safeCsv(r.VesselName), safeCsv(r.Transporter), safeCsv(r.ContainerSize), safeCsv(r.ContainerNumber), safeCsv(r.SealNumber), safeCsv(formatMoney(r.Rate) || ""), safeCsv(r.CollectFrom), safeCsv(r.DeliverTo), safeCsv(r.ContainerTurnIn)];
+            const row = [e.ts || "", safeCsv(r.Date), safeCsv(r.Reference), safeCsv(r.FileNo), safeCsv(r.ATT), safeCsv(r.Client), safeCsv(r.ShippingLine), safeCsv(r.VesselName), safeCsv(r.VesselETA), safeCsv(r.Transporter), safeCsv(r.ContainerSize), safeCsv(r.ContainerNumber), safeCsv(r.SealNumber), safeCsv(formatMoney(r.Rate) || ""), safeCsv(r.CollectFrom), safeCsv(r.DeliverTo), safeCsv(r.ContainerTurnIn)];
             lines.push(row.join(","));
         });
         downloadBlob(new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" }), `Logistics_Archive_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.csv`);
@@ -1456,6 +1482,7 @@
                 rows.forEach(rawRow => {
                     const row = mapRowData(rawRow);
                     row.Date = parseExcelDate(row.Date);
+                    row.VesselETA = parseExcelDate(row.VesselETA);
                     if (!row.SealNumber) row.SealNumber = 'N/A';
                     if (!row.ContainerTurnIn) row.ContainerTurnIn = 'TBC';
                     addLineRow(row);
@@ -1485,20 +1512,21 @@
         CLIENTS.forEach((c, i) => listSheet.getCell(`D${i+1}`).value = c);
 
         sheet.columns = [
-            { header: 'Date', key: 'Date', width: 15 }, 
+            { header: 'Date', key: 'Date', width: 15 },
             { header: 'Reference', key: 'Reference', width: 15 },
-            { header: 'File No', key: 'FileNo', width: 15 }, 
+            { header: 'File No', key: 'FileNo', width: 15 },
             { header: 'ATT', key: 'ATT', width: 15 },
             { header: 'Client', key: 'Client', width: 20 },
-            { header: 'Shipping Line', key: 'ShippingLine', width: 20 }, 
+            { header: 'Shipping Line', key: 'ShippingLine', width: 20 },
             { header: 'Vessel Name', key: 'VesselName', width: 25 },
+            { header: 'Vessel ETA', key: 'VesselETA', width: 15 },
             { header: 'Transporter', key: 'Transporter', width: 35 },
-            { header: 'Container Type', key: 'ContainerSize', width: 20 }, 
+            { header: 'Container Type', key: 'ContainerSize', width: 20 },
             { header: 'Container Number', key: 'ContainerNumber', width: 20 },
             { header: 'Seal Number', key: 'SealNumber', width: 22 },
-            { header: 'Rate', key: 'Rate', width: 12 }, 
+            { header: 'Rate', key: 'Rate', width: 12 },
             { header: 'Collection Hub', key: 'CollectFrom', width: 25 },
-            { header: 'Delivery Point', key: 'DeliverTo', width: 45 }, 
+            { header: 'Delivery Point', key: 'DeliverTo', width: 45 },
             { header: 'Turn In Hub', key: 'ContainerTurnIn', width: 25 },
         ];
 
@@ -1524,27 +1552,38 @@
                 error: 'Please enter a valid calendar date. Formats like 18.03.2026 will be normalised.',
             };
 
+            // Vessel ETA column - date formatting
+            sheet.getCell(`H${i}`).numFmt = 'yyyy-mm-dd';
+            sheet.getCell(`H${i}`).dataValidation = {
+                type: 'date',
+                allowBlank: true,
+                showErrorMessage: true,
+                errorStyle: 'warning',
+                errorTitle: 'Invalid Date',
+                error: 'Please enter a valid calendar date. Formats like 18.03.2026 will be normalised.',
+            };
+
             // Drop-downs for client, transporter and container type
             sheet.getCell(`E${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$D$1:$D$${CLIENTS.length}`] };
-            sheet.getCell(`H${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$A$1:$A$${TRANSPORTERS.length}`] };
-            sheet.getCell(`I${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$B$1:$B$${CONTAINER_SIZES.length}`] };
+            sheet.getCell(`I${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$A$1:$A$${TRANSPORTERS.length}`] };
+            sheet.getCell(`J${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [`Lists!$B$1:$B$${CONTAINER_SIZES.length}`] };
 
             // Container number format enforcement
-            sheet.getCell(`J${i}`).dataValidation = {
+            sheet.getCell(`K${i}`).dataValidation = {
                 type: 'custom',
                 allowBlank: true,
                 showErrorMessage: true,
                 errorStyle: 'warning',
                 errorTitle: 'Format Error',
                 error: 'Must be 4 letters followed by 7 numbers.',
-                formulae: [`AND(LEN(J${i})=11, ISNUMBER(VALUE(RIGHT(J${i},7))))`]
+                formulae: [`AND(LEN(K${i})=11, ISNUMBER(VALUE(RIGHT(K${i},7))))`]
             };
 
             // Rate numeric format
-            sheet.getCell(`L${i}`).numFmt = 'R #,##0.00';
+            sheet.getCell(`M${i}`).numFmt = 'R #,##0.00';
 
             // Delivery Point dropdown suggestion list (still allows manual entry)
-            sheet.getCell(`N${i}`).dataValidation = {
+            sheet.getCell(`O${i}`).dataValidation = {
                 type: 'list',
                 allowBlank: true,
                 showErrorMessage: false,
@@ -1552,7 +1591,7 @@
             };
 
             // Text-only style for all non-numeric logical fields
-            ['B','C','D','E','F','G','H','I','J','K','M','N','O'].forEach(col => {
+            ['B','C','D','E','F','G','I','J','K','L','N','O','P'].forEach(col => {
                 sheet.getCell(`${col}${i}`).numFmt = '@';
             });
         }
